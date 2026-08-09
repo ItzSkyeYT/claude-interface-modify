@@ -1,8 +1,8 @@
 # interface-modify/v1 export schema
 
 The editor exports a *diff-shaped* document, not a raw scene: what changed, what didn't,
-what the user drew, what they said. Interpret it in this order: comments → annotations →
-moved elements → hidden elements.
+what the user drew, what they said. Interpret it in this order: comments first, then
+annotations, then moved elements, then hidden elements.
 
 ```json
 {
@@ -66,38 +66,38 @@ moved elements → hidden elements.
 - **`text_style`** appears when a text layer's font size or colour changed:
   `{font_px_before, font_px_after, font_sp_after, color_before, color_after}`.
   `font_sp_after` is precomputed for Android (`textSize` in sp). Colours are the editor's
-  approximations — map them to the nearest theme attribute (`?colorOnSurface`,
-  `?colorOutline`, `?colorPrimary`…), not hardcoded hex, unless the user clearly wants an
-  off-theme colour.
+  approximations: map them to the nearest theme attribute (`?colorOnSurface`,
+  `?colorOutline`, `?colorPrimary`, ...), not hardcoded hex, unless the user clearly wants
+  an off-theme colour.
 - Text-layer *width* changes with unchanged font are reflow intent (the editor auto-fits
   height, Slides-style): translate to layout width/constraint changes and let Android wrap;
   the exported height is derived, don't copy it literally.
 - Text-layer *height* beyond the text's natural fit (top/bottom handle drags; the editor
-  clamps shrinking at the fit, so any surplus is deliberate) means vertical-space intent —
-  padding, a taller touch target, or centring room — not a font change.
+  clamps shrinking at the fit, so any surplus is deliberate) means vertical-space intent
+  (padding, a taller touch target, or centring room), not a font change.
 - A rotation of exactly 0/90/180/270 is deliberate (the editor magnets there); odd angles
-  on UI elements are usually annotation-ish intent — ask if unsure.
+  on UI elements are usually annotation-ish intent, so ask if unsure.
 - **Work in dp** when writing Android layout XML; the `*_dp` values are precomputed at
   `density_dpi / 160` px per dp and rounded to 0.1.
 - Deltas are derived at export from original-vs-final rects (never accumulated), with a
-  0.75-editor-px epsilon — sub-pixel drift is already filtered. `elements_unchanged` and
+  0.75-editor-px epsilon, so sub-pixel drift is already filtered. `elements_unchanged` and
   `elements_hidden` are bare id lists.
 - **Rot** is degrees clockwise about the rect centre; the rect itself is the un-rotated box.
-- **crop**, when present, is `{src_frac: {x, y, w, h}}` — the visible window as 0..1
-  fractions of the element's source bitmap, clamped so x+w ≤ 1.
+- **crop**, when present, is `{src_frac: {x, y, w, h}}`: the visible window as 0..1
+  fractions of the element's source bitmap, clamped so x+w <= 1.
 - `near` / `from_near` / `to_near` name the closest *visible* element (by centre distance,
-  at final positions) — they ground vague comment prose like "this one".
+  at final positions); they ground vague comment prose like "this one".
 - Intent outranks pixels: a drawn rect + comment describing a destination is the spec even
   if the user didn't drag the element itself. Conversely a 2dp accidental nudge that made
   it past the epsilon can be ignored if it contradicts nothing.
 - Translate deltas into the layout system's own vocabulary (constraints, chains, margins,
   gravity) rather than absolute coordinates. Moving a bottom-anchored button up 40dp means
   `marginBottom += 40dp`; centring something means new constraints, not x = w/2.
-- `elements_hidden` usually means `visibility="gone"` or removal — confirm with the user
+- `elements_hidden` usually means `visibility="gone"` or removal; confirm with the user
   before deleting anything from code that other screens/logic reference.
 - **`groups`** lists element ids the user grouped in the editor. Grouped elements moved
-  together, so their relative spacing is deliberate — preserve it (chains, a shared parent,
+  together, so their relative spacing is deliberate: preserve it (chains, a shared parent,
   or consistent margins) rather than positioning each member independently. Snapping was
   active during drags, so exact edge/centre alignments between elements in the export are
-  intentional, not coincidence — implement them as real constraints
+  intentional, not coincidence. Implement them as real constraints
   (`layout_constraintStart_toStartOf`, centring, etc.).
