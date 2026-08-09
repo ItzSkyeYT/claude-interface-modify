@@ -200,12 +200,28 @@ function translateObj(o, dx, dy) {
 // Slides-style smart guides: match the dragged box's edges/centre against every
 // other object's edges/centre (and the canvas) on each axis independently.
 let guides = [];
-function computeSnap(box, movingSet) {
-  const th = 6 / view.k;
+function snapTargets(movingSet) {
   const others = [];
   for (const e of S.els) if (!e.hidden && !movingSet.has(e)) others.push(objBox(e));
   for (const a of S.added) if (!movingSet.has(a)) others.push(objBox(a));
   others.push({x: 0, y: 0, w: SCENE.bg.w, h: SCENE.bg.h});
+  return others;
+}
+// Snap one moving line (an edge being resized) to targets on one axis.
+function snapEdge(val, axis, movingSet) {
+  const th = 6 / view.k;
+  let best = null;
+  for (const ob of snapTargets(movingSet)) {
+    const cands = axis === 'x' ? [ob.x, ob.x + ob.w / 2, ob.x + ob.w]
+                               : [ob.y, ob.y + ob.h / 2, ob.y + ob.h];
+    for (const v of cands) { const d = v - val;
+      if (Math.abs(d) <= th && (!best || Math.abs(d) < Math.abs(best.d))) best = {d, v, ob}; }
+  }
+  return best;
+}
+function computeSnap(box, movingSet) {
+  const th = 6 / view.k;
+  const others = snapTargets(movingSet);
   const ownX = [box.x, box.x + box.w / 2, box.x + box.w];
   const ownY = [box.y, box.y + box.h / 2, box.y + box.h];
   const best = {x: null, y: null};
@@ -642,7 +658,8 @@ vp.addEventListener('pointermove', e => {
     o.rot = ((a % 360) + 360) % 360;
     render(); badge(o, Math.round(o.rot) + '\u00B0'); return;
   }
-  if (drag.mode === 'resize' || drag.mode === 'crop') { doResize(drag, wx, wy, e.shiftKey, e.ctrlKey || e.metaKey || e.altKey); render(); return; }
+  if (drag.mode === 'resize' || drag.mode === 'crop') { guides = [];
+    doResize(drag, wx, wy, e.shiftKey, e.ctrlKey || e.metaKey || e.altKey); render(); return; }
   if (drag.mode === 'arrowEp') { const o = drag.o;
     if (drag.ep === 0) { o.x1 = wx; o.y1 = wy; } else { o.x2 = wx; o.y2 = wy; } render(); return; }
   if (drag.mode === 'create') {
@@ -689,6 +706,23 @@ function doResize(d, wx, wy, keepAspect, fromCenter) {
   let nw = hx === 0.5 ? o0.w : Math.max(6, hx === 1 ? pl : -pl);
   let nh = hy === 0.5 ? o0.h : Math.max(6, hy === 1 ? pt : -pt);
   const symmetric = fromCenter && d.mode !== 'crop';
+  // Smart guides while resizing: the dragged edge snaps to other objects' edges
+  // and centres. Plain resize on unrotated elements only; Shift/Ctrl keep their
+  // exact ratio math, and rotated edges have no axis-aligned line to snap.
+  let snapGX = null, snapGY = null;
+  if (d.mode === 'resize' && !symmetric && !keepAspect && !(o0.rot % 360)) {
+    const moving = new Set([o]);
+    if (hx !== 0.5) {
+      const edge = hx === 1 ? o0.x + nw : o0.x + o0.w - nw;
+      const b = snapEdge(edge, 'x', moving);
+      if (b) { nw = Math.max(6, hx === 1 ? nw + b.d : nw - b.d); snapGX = b; }
+    }
+    if (hy !== 0.5) {
+      const edge = hy === 1 ? o0.y + nh : o0.y + o0.h - nh;
+      const b = snapEdge(edge, 'y', moving);
+      if (b) { nh = Math.max(6, hy === 1 ? nh + b.d : nh - b.d); snapGY = b; }
+    }
+  }
   if (symmetric) {
     // Ctrl: the pointer sets the half-extent; both sides grow about the centre...
     if (hx !== 0.5) nw = Math.max(6, 2 * nw - o0.w);
@@ -728,6 +762,12 @@ function doResize(d, wx, wy, keepAspect, fromCenter) {
   }
   const prevW = o.w, prevH = o.h;
   o.w = nw; o.h = nh; o.x = cW[0] - nw / 2; o.y = cW[1] - nh / 2;
+  if (snapGX) guides.push({axis: 'x', v: snapGX.v,
+    from: Math.min(o.y, snapGX.ob.y) - 8 / view.k,
+    to: Math.max(o.y + o.h, snapGX.ob.y + snapGX.ob.h) + 8 / view.k});
+  if (snapGY) guides.push({axis: 'y', v: snapGY.v,
+    from: Math.min(o.x, snapGY.ob.x) - 8 / view.k,
+    to: Math.max(o.x + o.w, snapGY.ob.x + snapGY.ob.w) + 8 / view.k});
   if (S.sel?.kind === 'el' && o.type === 'text') {
     if (symmetric) o.fontPx = d.o0.fontPx * (o.h / o0.h);    // Ctrl: uniform, text scales too
     else if (hy === 0.5 && hx !== 0.5) refitTextHeight(o);   // sides: reflow, font unchanged
