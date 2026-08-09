@@ -9,6 +9,8 @@ trips through a **structured JSON export** (before/after geometry in px *and* dp
 text, groups, annotated comments) that you can also use standalone: version it, diff it, or
 feed it to any other tool.
 
+![The editor: a real app screen as draggable layers, with selection handles and full properties](docs/hero.png)
+
 Tell Claude `/interface-modify main_screen landscape` and it:
 
 1. **Captures** the real screen from your running emulator/device — screenshot plus the
@@ -71,6 +73,20 @@ The export is a diff-shaped document (before/after/delta in device px *and* dp, 
 text, style changes, groups, comments with nearest-element hints) designed for an LLM to
 translate into layout code — see
 [references/export-schema.md](references/export-schema.md).
+
+## What it looks like
+
+Smart guides snap real UI elements into alignment, Google-Slides-style:
+
+![Magenta smart guide snapping a button to the compass dial's centre line](docs/guides.png)
+
+Mark up intent with filled shapes, arrows, labels, and numbered comments:
+
+![A filled rectangle, arrow, text label and a numbered comment pin describing a change](docs/annotate.png)
+
+Shift-click to select several elements, group them, and move them as one:
+
+![Two buttons multi-selected with dashed outlines and a Group action in the sidebar](docs/group.png)
 
 ## What's in the box
 
