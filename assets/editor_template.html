@@ -259,10 +259,19 @@ function render() {
   world.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.k})`;
   zPct.textContent = Math.round(view.k * 100) + '%';
   world.innerHTML = '';
+  const RAD = Math.min(SCENE.bg.w, SCENE.bg.h) * 0.045;   // screen corner radius
+  const BEZ = Math.max(8, Math.min(SCENE.bg.w, SCENE.bg.h) * 0.022);
+  const body = document.createElement('div');
+  body.style.cssText = `position:absolute;left:${-BEZ}px;top:${-BEZ}px;` +
+    `width:${SCENE.bg.w + BEZ * 2}px;height:${SCENE.bg.h + BEZ * 2}px;` +
+    `border-radius:${RAD + BEZ}px;background:#08090b;` +
+    `box-shadow:0 0 0 ${1.5 / view.k}px #4a4e56;pointer-events:none`;
+  world.appendChild(body);
   const bg = document.createElement(SCENE.bg.src ? 'img' : 'div');
   if (SCENE.bg.src) { bg.src = SCENE.bg.src; bg.draggable = false; }
   else bg.style.background = SCENE.bg.color || '#131316';
-  bg.style.cssText += `;position:absolute;left:0;top:0;width:${SCENE.bg.w}px;height:${SCENE.bg.h}px`;
+  bg.style.cssText += `;position:absolute;left:0;top:0;width:${SCENE.bg.w}px;` +
+    `height:${SCENE.bg.h}px;border-radius:${RAD}px`;
   world.appendChild(bg);
 
   for (const e of S.els) {
@@ -334,6 +343,11 @@ function render() {
       : `top:${g.v - 0.75 / view.k}px;left:${g.from}px;height:${1.5 / view.k}px;width:${g.to - g.from}px`);
     world.appendChild(d);
   }
+  const edge = document.createElement('div');
+  edge.style.cssText = `position:absolute;left:0;top:0;width:${SCENE.bg.w}px;` +
+    `height:${SCENE.bg.h}px;border-radius:${RAD}px;pointer-events:none;` +
+    `box-shadow:0 0 0 ${1 / view.k}px rgba(255,255,255,.16)`;
+  world.appendChild(edge);
   drawSel(); renderSide();
 }
 
@@ -872,7 +886,7 @@ vp.addEventListener('wheel', e => {
 
 function fit() {
   const r = vp.getBoundingClientRect();
-  view.k = Math.min((r.width - 70) / SCENE.bg.w, (r.height - 70) / SCENE.bg.h);
+  view.k = Math.min((r.width - 110) / SCENE.bg.w, (r.height - 110) / SCENE.bg.h);
   view.x = (r.width - SCENE.bg.w * view.k) / 2;
   view.y = (r.height - SCENE.bg.h * view.k) / 2;
   render();
