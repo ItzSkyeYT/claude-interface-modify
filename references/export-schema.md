@@ -63,8 +63,10 @@ annotations, then moved elements, then hidden elements.
 - **`text_changed`** appears on text layers whose content the user rewrote (an element can
   be in `elements_moved` for a text change alone, with zero geometry delta). Map it to
   string resources / format strings, not layout.
-- **`text_style`** appears when a text layer's font size or colour changed:
-  `{font_px_before, font_px_after, font_sp_after, color_before, color_after}`.
+- **`text_style`** appears when a text layer's font size, colour, or alignment changed:
+  `{font_px_before, font_px_after, font_sp_after, color_before, color_after,
+  align_before, align_after}`. Alignment maps to `android:textAlignment`/`gravity`.
+  Text annotations also carry an `align` field.
   `font_sp_after` is precomputed for Android (`textSize` in sp). Colours are the editor's
   approximations: map them to the nearest theme attribute (`?colorOnSurface`,
   `?colorOutline`, `?colorPrimary`, ...), not hardcoded hex, unless the user clearly wants

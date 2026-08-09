@@ -115,7 +115,7 @@ const S = {
   els: SCENE.els.map(e => ({...e, rot: 0, hidden: false,
     img: (e.type === 'text' || e.type === 'box') ? null : {w: e.w, h: e.h, offX: 0, offY: 0},
     orig: {x: e.x, y: e.y, w: e.w, h: e.h, rot: 0, text: e.text ?? null,
-      fontPx: e.fontPx ?? null, color: e.color ?? null}})),
+      fontPx: e.fontPx ?? null, color: e.color ?? null, align: e.align ?? 'left'}})),
   added: [], comments: [], notes: '',
   sel: null,          // {kind:'el'|'add'|'pin'|'group', id}
   multi: [],          // shift-click selection units (transient, not in history)
@@ -298,7 +298,8 @@ function render() {
       if (a.type === 'ellipse') d.style.cssText += `;border:3px solid ${a.color};border-radius:50%`;
       if ((a.type === 'rect' || a.type === 'ellipse') && a.fill && a.fill !== 'none')
         d.style.background = a.fill + '55';
-      if (a.type === 'text') { d.textContent = a.text; d.style.fontSize = a.fontSize + 'px'; d.style.color = a.color; }
+      if (a.type === 'text') { d.textContent = a.text; d.style.fontSize = a.fontSize + 'px';
+        d.style.color = a.color; d.style.textAlign = a.align || 'left'; d.style.whiteSpace = 'pre-wrap'; }
       world.appendChild(d);
     }
   }
@@ -413,6 +414,20 @@ function renderSide() {
   const o = get(S.sel);
   if (!o) { P.innerHTML = '<div class="full" style="color:var(--mut)">Nothing selected - shift-click selects several</div>'; renderComments(); return; }
   if (S.sel.kind === 'pin') { P.innerHTML = '<div class="full" style="color:var(--mut)">Comment pin -- edit text below</div>'; renderComments(); return; }
+  const alignRow = (obj) => {
+    const lbl = document.createElement('div'); lbl.className = 'full';
+    lbl.style.cssText = 'font-size:11px;color:var(--mut)'; lbl.textContent = 'Align';
+    P.appendChild(lbl);
+    const row = document.createElement('div'); row.className = 'full';
+    row.style.cssText = 'display:flex;gap:6px';
+    for (const [v, lab] of [['left', 'Left'], ['center', 'Centre'], ['right', 'Right']]) {
+      const b = document.createElement('button'); b.style.flex = '1'; b.textContent = lab;
+      if ((obj.align || 'left') === v) b.className = 'on';
+      b.onclick = () => { obj.align = v; commit(); render(); };
+      row.appendChild(b);
+    }
+    P.appendChild(row);
+  };
   const num = (lab, key, step = 1) => {
     const l = document.createElement('label'); l.textContent = lab;
     const i = document.createElement('input'); i.type = 'number'; i.step = step;
@@ -430,7 +445,7 @@ function renderSide() {
     r90.onclick = () => { o.rot = ((o.rot || 0) + 90) % 360; commit(); render(); };
     P.appendChild(r90); }
   if (S.sel.kind === 'add') {
-    if (o.type === 'text') num('Font px', 'fontSize');
+    if (o.type === 'text') { num('Font px', 'fontSize'); alignRow(o); }
     const swLbl = document.createElement('div'); swLbl.className = 'full';
     swLbl.style.cssText = 'font-size:11px;color:var(--mut)';
     swLbl.textContent = o.type === 'text' ? 'Color' : 'Stroke';
@@ -471,6 +486,7 @@ function renderSide() {
       fi.onchange = () => { o.fontPx = Math.max(4, parseFloat(fi.value) || o.fontPx);
         refitTextHeight(o); commit(); render(); };
       fl.appendChild(fi); P.appendChild(fl);
+      alignRow(o);
       const sw = document.createElement('div'); sw.className = 'swatches full';
       for (const c of [o.orig.color || '#e6e1e6', '#ffffff', '#9a9ea6', '#ffd24a', '#ff5555', '#58d68d']) {
         const b = document.createElement('div'); b.className = 'sw' + (o.color === c ? ' on' : '');
@@ -480,7 +496,8 @@ function renderSide() {
     const reset = document.createElement('button'); reset.className = 'full'; reset.textContent = 'Reset to original';
     reset.onclick = () => {
       if (o.type === 'text') Object.assign(o, {x:o.orig.x, y:o.orig.y, w:o.orig.w, h:o.orig.h,
-        rot:o.orig.rot, hidden:false, text:o.orig.text, fontPx:o.orig.fontPx, color:o.orig.color});
+        rot:o.orig.rot, hidden:false, text:o.orig.text, fontPx:o.orig.fontPx, color:o.orig.color,
+        align:o.orig.align});
       else Object.assign(o, o.orig, {hidden:false, img:{w:o.orig.w,h:o.orig.h,offX:0,offY:0}});
       commit(); render(); };
     P.appendChild(reset);
@@ -871,7 +888,8 @@ function buildExport() {
       Math.abs(e.img.w - e.w) > EPS || Math.abs(e.img.h - e.h) > EPS);
     const textChanged = e.type === 'text' && e.text !== e.orig.text;
     const styleChanged = e.type === 'text' &&
-      (Math.abs(e.fontPx - e.orig.fontPx) > 0.5 || e.color !== e.orig.color);
+      (Math.abs(e.fontPx - e.orig.fontPx) > 0.5 || e.color !== e.orig.color ||
+       (e.align || 'left') !== (e.orig.align || 'left'));
     if (Math.abs(d.dx) < EPS && Math.abs(d.dy) < EPS && Math.abs(d.dw) < EPS &&
         Math.abs(d.dh) < EPS && Math.abs(d.drot) < 0.5 && !cropped && !textChanged && !styleChanged) { unchanged.push(e.id); continue; }
     moved.push({id: e.id, label: e.label,
@@ -879,7 +897,8 @@ function buildExport() {
       text_style: styleChanged ? {
         font_px_before: toDev(e.orig.fontPx), font_px_after: toDev(e.fontPx),
         font_sp_after: Math.round(toDev(e.fontPx) / PXDP * 10) / 10,
-        color_before: e.orig.color, color_after: e.color} : null,
+        color_before: e.orig.color, color_after: e.color,
+        align_before: e.orig.align || 'left', align_after: e.align || 'left'} : null,
       before_px: rect(e.orig), after_px: rect(e),
       before_dp: rectDp(e.orig), after_dp: rectDp(e),
       delta_px: {dx: toDev(d.dx), dy: toDev(d.dy), dw: toDev(d.dw), dh: toDev(d.dh), drot: Math.round(d.drot * 10) / 10},
@@ -903,6 +922,7 @@ function buildExport() {
       ? {type: 'arrow', from_px: {x: toDev(a.x1), y: toDev(a.y1)}, to_px: {x: toDev(a.x2), y: toDev(a.y2)},
          from_near: nearest(a.x1, a.y1)?.id, to_near: nearest(a.x2, a.y2)?.id, color: a.color}
       : {type: a.type, px: rect(a), dp: rectDp(a), text: a.text ?? null, color: a.color,
+         align: a.type === 'text' ? (a.align || 'left') : undefined,
          fill: (a.fill && a.fill !== 'none') ? a.fill : null}),
     groups: S.groups.map(g => ({id: g.id, members: g.members.map(m => m.id)})),
     comments: S.comments.filter(c => c.text.trim()).map(c => ({n: c.n,
