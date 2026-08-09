@@ -22,6 +22,7 @@ kbd{opacity:.55;font-size:10px;margin-left:4px}
 .txt{position:absolute;color:#ffd24a;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,.8);overflow:hidden;line-height:1.25}
 .txt[contenteditable="true"]{outline:1.5px dashed var(--acc);cursor:text;user-select:text;-webkit-user-select:text}
 .eltxt{font-family:system-ui,Roboto,sans-serif}
+.elbox{display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;color:#9aa0a8;border:1px solid #3d4046;font-family:system-ui,Roboto,sans-serif}
 .eltxt[contenteditable="true"]{outline:1.5px dashed var(--acc);cursor:text;user-select:text;-webkit-user-select:text}
 .pin{position:absolute;display:flex;align-items:center;justify-content:center;background:#ffb020;color:#241a00;font-weight:700;border-radius:50% 50% 50% 0;box-shadow:0 1px 5px rgba(0,0,0,.55);cursor:pointer}
 .pin.sel{background:#fff;color:#000}
@@ -112,7 +113,7 @@ if (!SCENE) document.body.insertAdjacentHTML('afterbegin',
 /* ---------- state ---------- */
 const S = {
   els: SCENE.els.map(e => ({...e, rot: 0, hidden: false,
-    img: e.type === 'text' ? null : {w: e.w, h: e.h, offX: 0, offY: 0},
+    img: (e.type === 'text' || e.type === 'box') ? null : {w: e.w, h: e.h, offX: 0, offY: 0},
     orig: {x: e.x, y: e.y, w: e.w, h: e.h, rot: 0, text: e.text ?? null,
       fontPx: e.fontPx ?? null, color: e.color ?? null}})),
   added: [], comments: [], notes: '',
@@ -242,9 +243,11 @@ function render() {
   world.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.k})`;
   zPct.textContent = Math.round(view.k * 100) + '%';
   world.innerHTML = '';
-  const bg = document.createElement('img');
-  bg.src = SCENE.bg.src; bg.style.cssText = `position:absolute;left:0;top:0;width:${SCENE.bg.w}px;height:${SCENE.bg.h}px`;
-  bg.draggable = false; world.appendChild(bg);
+  const bg = document.createElement(SCENE.bg.src ? 'img' : 'div');
+  if (SCENE.bg.src) { bg.src = SCENE.bg.src; bg.draggable = false; }
+  else bg.style.background = SCENE.bg.color || '#131316';
+  bg.style.cssText += `;position:absolute;left:0;top:0;width:${SCENE.bg.w}px;height:${SCENE.bg.h}px`;
+  world.appendChild(bg);
 
   for (const e of S.els) {
     if (e.hidden) continue;
@@ -255,6 +258,12 @@ function render() {
       d.style.cssText = `left:${e.x}px;top:${e.y}px;width:${e.w}px;height:${e.h}px;` +
         `transform:rotate(${e.rot}deg);font-size:${e.fontPx}px;color:${e.color};` +
         `text-align:${e.align || 'left'};white-space:pre-wrap;line-height:1.3;overflow:hidden`;
+    } else if (e.type === 'box') {
+      d.className = 'obj elbox'; d.dataset.kind = 'el'; d.dataset.id = e.id;
+      d.textContent = e.label;
+      d.style.cssText = `left:${e.x}px;top:${e.y}px;width:${e.w}px;height:${e.h}px;` +
+        `transform:rotate(${e.rot}deg);background:${e.color || '#2a2c31'};` +
+        `border-radius:${e.radius ?? 12}px;font-size:${Math.min(14, e.h * 0.3)}px`;
     } else {
       d.className = 'obj imgLayer'; d.dataset.kind = 'el'; d.dataset.id = e.id;
       d.style.cssText = `left:${e.x}px;top:${e.y}px;width:${e.w}px;height:${e.h}px;` +
