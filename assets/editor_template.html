@@ -84,7 +84,7 @@ kbd{opacity:.55;font-size:10px;margin-left:4px}
   <div id="main">
     <div id="viewport">
       <div id="world"></div>
-      <div id="hint">drag to move (magenta lines = snap; alt disables) &middot; shift-click selects several &middot; ctrl+G groups &middot; knob rotates (snaps at 90&#176;) &middot; ctrl+wheel zoom &middot; double-click text edits</div>
+      <div id="hint">drag to move (magenta lines = snap; alt disables) &middot; shift-click selects several &middot; ctrl+G groups &middot; ctrl+handle resizes from centre &middot; knob rotates (snaps at 90&#176;) &middot; ctrl+wheel zoom &middot; double-click text edits</div>
     </div>
     <div id="side">
       <h3>Layers</h3><div id="layers"></div>
@@ -642,7 +642,7 @@ vp.addEventListener('pointermove', e => {
     o.rot = ((a % 360) + 360) % 360;
     render(); badge(o, Math.round(o.rot) + '\u00B0'); return;
   }
-  if (drag.mode === 'resize' || drag.mode === 'crop') { doResize(drag, wx, wy, e.shiftKey); render(); return; }
+  if (drag.mode === 'resize' || drag.mode === 'crop') { doResize(drag, wx, wy, e.shiftKey, e.ctrlKey || e.metaKey || e.altKey); render(); return; }
   if (drag.mode === 'arrowEp') { const o = drag.o;
     if (drag.ep === 0) { o.x1 = wx; o.y1 = wy; } else { o.x2 = wx; o.y2 = wy; } render(); return; }
   if (drag.mode === 'create') {
@@ -674,7 +674,7 @@ function endDrag() {
 vp.addEventListener('pointerup', endDrag);
 vp.addEventListener('pointercancel', endDrag);
 
-function doResize(d, wx, wy, keepAspect) {
+function doResize(d, wx, wy, keepAspect, fromCenter) {
   const o = d.o, o0 = d.o0, h = d.h;
   const [hx, hy] = HANDLES[h];                       // 0|0.5|1 in unit box
   const ax = 1 - hx, ay = 1 - hy;                    // anchor unit pos (opposite)
@@ -688,6 +688,12 @@ function doResize(d, wx, wy, keepAspect) {
   // Signed clamp, not abs: crossing the anchor pins the box at min size instead of mirroring.
   let nw = hx === 0.5 ? o0.w : Math.max(6, hx === 1 ? pl : -pl);
   let nh = hy === 0.5 ? o0.h : Math.max(6, hy === 1 ? pt : -pt);
+  const symmetric = fromCenter && d.mode !== 'crop';
+  if (symmetric) {
+    // Ctrl: the pointer sets the half-extent; both sides grow about the centre.
+    if (hx !== 0.5) nw = Math.max(6, 2 * nw - o0.w);
+    if (hy !== 0.5) nh = Math.max(6, 2 * nh - o0.h);
+  }
   if (d.mode === 'resize' && S.sel?.kind === 'el' && o.type === 'text' &&
       hx === 0.5 && hy !== 0.5) {
     nh = Math.max(nh, measureTextH(o.text, d.o0.fontPx, o0.w));
@@ -705,11 +711,15 @@ function doResize(d, wx, wy, keepAspect) {
     const ratio = Math.max(nw / o0.w, nh / o0.h);
     nw = o0.w * ratio; nh = o0.h * ratio;
   }
-  // new centre from fixed anchor
-  const sgnX = hx === 0.5 ? 0 : (hx > ax ? 1 : -1);
-  const sgnY = hy === 0.5 ? 0 : (hy > ay ? 1 : -1);
-  const cLoc = [sgnX * nw / 2, sgnY * nh / 2];
-  const cW = [aW[0] + rot2(cLoc[0], cLoc[1], th)[0], aW[1] + rot2(cLoc[0], cLoc[1], th)[1]];
+  // new centre: fixed anchor normally, fixed CENTRE when resizing symmetrically
+  let cW;
+  if (symmetric) cW = c0;
+  else {
+    const sgnX = hx === 0.5 ? 0 : (hx > ax ? 1 : -1);
+    const sgnY = hy === 0.5 ? 0 : (hy > ay ? 1 : -1);
+    const cLoc = [sgnX * nw / 2, sgnY * nh / 2];
+    cW = [aW[0] + rot2(cLoc[0], cLoc[1], th)[0], aW[1] + rot2(cLoc[0], cLoc[1], th)[1]];
+  }
   const prevW = o.w, prevH = o.h;
   o.w = nw; o.h = nh; o.x = cW[0] - nw / 2; o.y = cW[1] - nh / 2;
   if (S.sel?.kind === 'el' && o.type === 'text') {
