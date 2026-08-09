@@ -1,0 +1,943 @@
+<title>Interface Modify</title>
+<style>
+:root{--bg:#151619;--panel:#1e2024;--panel2:#26282d;--line:#33363c;--txt:#e8e9ec;--mut:#9a9ea6;--acc:#6d9ef7;--danger:#f76d6d;}
+*{box-sizing:border-box;margin:0;padding:0}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg);color:var(--txt);font:13px/1.45 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;user-select:none;-webkit-user-select:none}
+#bar{display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+#bar .sp{flex:1}
+button{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:6px 11px;font:inherit;cursor:pointer;white-space:nowrap}
+button:hover{border-color:#4a4e56}
+button.on{background:var(--acc);border-color:var(--acc);color:#0d1117;font-weight:600}
+button.primary{background:var(--acc);border-color:var(--acc);color:#0d1117;font-weight:600}
+button.ghost{background:transparent}
+button:disabled{opacity:.4;cursor:default}
+kbd{opacity:.55;font-size:10px;margin-left:4px}
+#main{flex:1;display:flex;min-height:0}
+#viewport{flex:1;position:relative;overflow:hidden;background:#0d0e10;touch-action:none;cursor:default}
+#world{position:absolute;left:0;top:0;transform-origin:0 0}
+#world img,#world .imgLayer{pointer-events:none}
+.obj{position:absolute}
+.imgLayer{background-repeat:no-repeat}
+.shape{position:absolute}
+.txt{position:absolute;color:#ffd24a;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,.8);overflow:hidden;line-height:1.25}
+.txt[contenteditable="true"]{outline:1.5px dashed var(--acc);cursor:text;user-select:text;-webkit-user-select:text}
+.eltxt{font-family:system-ui,Roboto,sans-serif}
+.eltxt[contenteditable="true"]{outline:1.5px dashed var(--acc);cursor:text;user-select:text;-webkit-user-select:text}
+.pin{position:absolute;display:flex;align-items:center;justify-content:center;background:#ffb020;color:#241a00;font-weight:700;border-radius:50% 50% 50% 0;box-shadow:0 1px 5px rgba(0,0,0,.55);cursor:pointer}
+.pin.sel{background:#fff;color:#000}
+#svg{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+#svg .hit{pointer-events:stroke;cursor:move}
+#selbox{position:absolute;border:1.5px solid var(--acc);pointer-events:none}
+.hnd{position:absolute;background:#fff;border:1.5px solid var(--acc);border-radius:3px;pointer-events:auto}
+.hnd.rot{border-radius:50%;background:var(--acc)}
+#rotbadge{position:absolute;background:#000c;color:#fff;font-size:11px;padding:2px 7px;border-radius:5px;pointer-events:none;white-space:nowrap}
+#side{width:270px;background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;overflow-y:auto}
+#side h3{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--mut);padding:12px 12px 6px}
+.lrow{display:flex;align-items:center;gap:7px;padding:5px 12px;cursor:pointer;border-left:2px solid transparent}
+.lrow:hover{background:var(--panel2)}
+.lrow.sel{background:var(--panel2);border-left-color:var(--acc)}
+.lrow .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lrow .nm.dim{opacity:.4;text-decoration:line-through}
+.lrow .eye{opacity:.6;cursor:pointer;font-size:12px;background:none;border:none;padding:2px}
+#props{padding:4px 12px 10px;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+#props label{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--mut)}
+#props input[type=number]{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:5px;padding:4px 6px;font:inherit}
+#props .full{grid-column:1/-1}
+.swatches{display:flex;gap:6px}
+.sw{width:20px;height:20px;border-radius:5px;cursor:pointer;border:2px solid transparent}
+.sw.on{border-color:#fff}
+.crow{padding:6px 12px;display:flex;gap:7px;align-items:flex-start}
+.crow .num{background:#ffb020;color:#241a00;font-weight:700;border-radius:50%;min-width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;margin-top:3px}
+.crow textarea{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:5px 7px;font:inherit;resize:vertical;min-height:34px}
+.crow .del{background:none;border:none;color:var(--mut);cursor:pointer;padding:2px;font-size:14px}
+#notes{width:calc(100% - 24px);margin:0 12px 14px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:6px 8px;font:inherit;resize:vertical;min-height:52px}
+#side textarea,#side input{user-select:text;-webkit-user-select:text}
+#modal{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:50}
+#modal.open{display:flex}
+#modal .box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:min(680px,90vw);max-height:82vh;display:flex;flex-direction:column;gap:10px}
+#modal textarea{flex:1;min-height:280px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:7px;padding:9px;font:11px/1.5 ui-monospace,monospace;user-select:text;-webkit-user-select:text}
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#2ea043;color:#fff;padding:9px 18px;border-radius:8px;font-weight:600;display:none;z-index:60}
+#hint{position:absolute;left:10px;bottom:10px;background:#000a;color:var(--mut);font-size:11px;padding:5px 10px;border-radius:6px;pointer-events:none}
+</style>
+<div id="app">
+  <div id="bar">
+    <button data-tool="select" class="on">Select<kbd>V</kbd></button>
+    <button data-tool="rect">Rect<kbd>R</kbd></button>
+    <button data-tool="ellipse">Ellipse<kbd>O</kbd></button>
+    <button data-tool="arrow">Arrow<kbd>A</kbd></button>
+    <button data-tool="text">Text<kbd>T</kbd></button>
+    <button data-tool="comment">Comment<kbd>C</kbd></button>
+    <button id="cropBtn" style="display:none">Crop</button>
+    <span style="width:1px;height:22px;background:var(--line)"></span>
+    <button id="undoBtn" class="ghost">Undo</button>
+    <button id="redoBtn" class="ghost">Redo</button>
+    <span style="width:1px;height:22px;background:var(--line)"></span>
+    <button id="zOut" class="ghost">&minus;</button>
+    <button id="zFit" class="ghost">Fit</button>
+    <button id="zIn" class="ghost">+</button>
+    <span id="zPct" style="color:var(--mut);min-width:42px;text-align:center">100%</span>
+    <span class="sp"></span>
+    <button id="dlBtn">Download JSON</button>
+    <button id="copyBtn" class="primary">Copy for Claude</button>
+  </div>
+  <div id="main">
+    <div id="viewport">
+      <div id="world"></div>
+      <div id="hint">drag to move (magenta lines = snap; alt disables) &middot; shift-click selects several &middot; ctrl+G groups &middot; knob rotates (snaps at 90&#176;) &middot; ctrl+wheel zoom &middot; double-click text edits</div>
+    </div>
+    <div id="side">
+      <h3>Layers</h3><div id="layers"></div>
+      <h3>Selected</h3><div id="props"><div class="full" style="color:var(--mut)">Nothing selected</div></div>
+      <h3>Comments</h3><div id="clist"></div>
+      <h3>Notes to Claude</h3>
+      <textarea id="notes" placeholder="Anything else about this redesign&hellip;"></textarea>
+    </div>
+  </div>
+</div>
+<div id="modal"><div class="box">
+  <b id="modalTitle">Copy this JSON and paste it to Claude</b>
+  <textarea id="modalTxt" readonly></textarea>
+  <div style="display:flex;gap:8px;justify-content:flex-end">
+    <button id="modalSelect">Select all</button>
+    <button id="modalClose" class="primary">Done</button>
+  </div>
+</div></div>
+<div id="toast"></div>
+<script>
+'use strict';
+const SCENE = /*__SCENE__*/null;
+if (!SCENE) document.body.insertAdjacentHTML('afterbegin',
+  '<div style="position:fixed;inset:0;z-index:99;display:flex;align-items:center;justify-content:center;background:#151619;color:#f76d6d;font:15px system-ui">Template error: scene was not injected - run build_editor.py</div>');
+
+/* ---------- state ---------- */
+const S = {
+  els: SCENE.els.map(e => ({...e, rot: 0, hidden: false,
+    img: e.type === 'text' ? null : {w: e.w, h: e.h, offX: 0, offY: 0},
+    orig: {x: e.x, y: e.y, w: e.w, h: e.h, rot: 0, text: e.text ?? null,
+      fontPx: e.fontPx ?? null, color: e.color ?? null}})),
+  added: [], comments: [], notes: '',
+  sel: null,          // {kind:'el'|'add'|'pin'|'group', id}
+  multi: [],          // shift-click selection units (transient, not in history)
+  groups: [], nextGroup: 1,
+  tool: 'select', crop: false, nextShape: 1, nextPin: 1,
+};
+const view = {x: 0, y: 0, k: 1};
+let history = [], future = [];
+const D2R = Math.PI / 180;
+const PXDP = SCENE.meta.density / 160;         // device px per dp
+const ESC = SCENE.meta.scale;                  // device px per editor px
+const vp = document.getElementById('viewport');
+const world = document.getElementById('world');
+
+// Snapshots strip the base64 image payloads (multi-MB per entry otherwise) and
+// rebind them on restore -- element ids are stable, elements are never destroyed.
+const SRC = new Map(S.els.map(e => [e.id, e.src]));
+const snap = () => JSON.stringify({els: S.els.map(({src, ...r}) => r), added: S.added,
+  comments: S.comments, groups: S.groups, notes: S.notes,
+  nextShape: S.nextShape, nextPin: S.nextPin, nextGroup: S.nextGroup});
+function commit() { pruneGroups(); const s = snap(); if (s === history[history.length - 1]) return;
+  history.push(s); if (history.length > 200) history.shift(); future = []; syncBar(); }
+function restore(s) { const o = JSON.parse(s); S.els = o.els; S.added = o.added;
+  S.els.forEach(e => e.src = SRC.get(e.id));
+  S.comments = o.comments; S.notes = o.notes; S.nextShape = o.nextShape; S.nextPin = o.nextPin;
+  S.groups = o.groups ?? []; S.nextGroup = o.nextGroup ?? 1;
+  document.getElementById('notes').value = S.notes;
+  S.sel = null; S.multi = []; S.crop = false; render(); }
+// Groups may reference objects that were deleted elsewhere; drop dead refs and
+// dissolve groups that no longer have two members.
+function pruneGroups() {
+  for (const g of S.groups) g.members = g.members.filter(m => get(m));
+  S.groups = S.groups.filter(g => g.members.length > 1);
+}
+function undo() { if (history.length < 2) return; future.push(history.pop()); restore(history[history.length - 1]); syncBar(); }
+function redo() { if (!future.length) return; const s = future.pop(); history.push(s); restore(s); syncBar(); }
+function syncBar() { undoBtn.disabled = history.length < 2; redoBtn.disabled = !future.length; }
+
+/* ---------- geometry ---------- */
+const rot2 = (x, y, a) => [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)];
+function toWorld(e) { const r = vp.getBoundingClientRect();
+  return [(e.clientX - r.left - view.x) / view.k, (e.clientY - r.top - view.y) / view.k]; }
+function toLocal(o, wx, wy) { const cx = o.x + o.w / 2, cy = o.y + o.h / 2;
+  const [lx, ly] = rot2(wx - cx, wy - cy, -(o.rot || 0) * D2R);
+  return [lx + o.w / 2, ly + o.h / 2]; }
+function get(sel) { if (!sel) return null;
+  if (sel.kind === 'el') return S.els.find(e => e.id === sel.id);
+  if (sel.kind === 'add') return S.added.find(e => e.id === sel.id);
+  return S.comments.find(c => c.id === sel.id); }
+function nearest(x, y) { let best = null, bd = 1e9;
+  for (const e of S.els) { if (e.hidden) continue;
+    const d = Math.hypot(e.x + e.w / 2 - x, e.y + e.h / 2 - y);
+    if (d < bd) { bd = d; best = e; } } return best; }
+
+/* ---------- units, groups, snapping ---------- */
+// Axis-aligned bounding box of any object (rotated boxes, arrows, pins).
+function objBox(o) {
+  if (o.x1 !== undefined) return {x: Math.min(o.x1, o.x2), y: Math.min(o.y1, o.y2),
+    w: Math.abs(o.x2 - o.x1), h: Math.abs(o.y2 - o.y1)};
+  if (o.w === undefined) return {x: o.x, y: o.y, w: 0, h: 0};   // comment pin
+  if (!o.rot) return {x: o.x, y: o.y, w: o.w, h: o.h};
+  const th = o.rot * D2R, c = Math.abs(Math.cos(th)), s = Math.abs(Math.sin(th));
+  const w = o.w * c + o.h * s, h = o.w * s + o.h * c;
+  return {x: o.x + o.w / 2 - w / 2, y: o.y + o.h / 2 - h / 2, w, h};
+}
+function unionBox(objs) { let l = 1e9, t = 1e9, r = -1e9, b = -1e9;
+  for (const o of objs) { const bb = objBox(o);
+    l = Math.min(l, bb.x); t = Math.min(t, bb.y);
+    r = Math.max(r, bb.x + bb.w); b = Math.max(b, bb.y + bb.h); }
+  return l > r ? null : {x: l, y: t, w: r - l, h: b - t}; }
+function groupOf(kind, id) {
+  return S.groups.find(g => g.members.some(m => m.kind === kind && m.id === id)) || null; }
+function unitObjs(u) {
+  if (u.kind === 'group') { const g = S.groups.find(g => g.id === u.id);
+    return g ? g.members.map(m => get(m)).filter(o => o && !o.hidden) : []; }
+  const o = get(u); return o && !o.hidden ? [o] : []; }
+function unitBox(u) { return unionBox(unitObjs(u)); }
+function translateObj(o, dx, dy) {
+  if (o.x1 !== undefined) { o.x1 += dx; o.x2 += dx; o.y1 += dy; o.y2 += dy; }
+  else { o.x += dx; o.y += dy; } }
+
+// Slides-style smart guides: match the dragged box's edges/centre against every
+// other object's edges/centre (and the canvas) on each axis independently.
+let guides = [];
+function computeSnap(box, movingSet) {
+  const th = 6 / view.k;
+  const others = [];
+  for (const e of S.els) if (!e.hidden && !movingSet.has(e)) others.push(objBox(e));
+  for (const a of S.added) if (!movingSet.has(a)) others.push(objBox(a));
+  others.push({x: 0, y: 0, w: SCENE.bg.w, h: SCENE.bg.h});
+  const ownX = [box.x, box.x + box.w / 2, box.x + box.w];
+  const ownY = [box.y, box.y + box.h / 2, box.y + box.h];
+  const best = {x: null, y: null};
+  for (const ob of others) {
+    for (const v of [ob.x, ob.x + ob.w / 2, ob.x + ob.w])
+      for (const s of ownX) { const d = v - s;
+        if (Math.abs(d) <= th && (!best.x || Math.abs(d) < Math.abs(best.x.d))) best.x = {d, v, ob}; }
+    for (const v of [ob.y, ob.y + ob.h / 2, ob.y + ob.h])
+      for (const s of ownY) { const d = v - s;
+        if (Math.abs(d) <= th && (!best.y || Math.abs(d) < Math.abs(best.y.d))) best.y = {d, v, ob}; }
+  }
+  return best;
+}
+function groupSelection() {
+  if (S.multi.length < 2) return;
+  const members = [];
+  for (const u of S.multi) {
+    if (u.kind === 'group') { const g = S.groups.find(g => g.id === u.id);
+      if (g) { members.push(...g.members); S.groups = S.groups.filter(x => x.id !== u.id); } }
+    else members.push(u);
+  }
+  const g = {id: 'g' + S.nextGroup++, members};
+  S.groups.push(g);
+  S.multi = []; S.sel = {kind: 'group', id: g.id};
+  commit(); render();
+}
+function ungroupSelection() {
+  if (S.sel?.kind !== 'group') return;
+  S.groups = S.groups.filter(g => g.id !== S.sel.id);
+  S.sel = null; commit(); render();
+}
+
+/* ---------- render ---------- */
+function render() {
+  world.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.k})`;
+  zPct.textContent = Math.round(view.k * 100) + '%';
+  world.innerHTML = '';
+  const bg = document.createElement('img');
+  bg.src = SCENE.bg.src; bg.style.cssText = `position:absolute;left:0;top:0;width:${SCENE.bg.w}px;height:${SCENE.bg.h}px`;
+  bg.draggable = false; world.appendChild(bg);
+
+  for (const e of S.els) {
+    if (e.hidden) continue;
+    const d = document.createElement('div');
+    if (e.type === 'text') {
+      d.className = 'obj eltxt'; d.dataset.kind = 'el'; d.dataset.id = e.id;
+      d.textContent = e.text;
+      d.style.cssText = `left:${e.x}px;top:${e.y}px;width:${e.w}px;height:${e.h}px;` +
+        `transform:rotate(${e.rot}deg);font-size:${e.fontPx}px;color:${e.color};` +
+        `text-align:${e.align || 'left'};white-space:pre-wrap;line-height:1.3;overflow:hidden`;
+    } else {
+      d.className = 'obj imgLayer'; d.dataset.kind = 'el'; d.dataset.id = e.id;
+      d.style.cssText = `left:${e.x}px;top:${e.y}px;width:${e.w}px;height:${e.h}px;` +
+        `transform:rotate(${e.rot}deg);background-image:url(${e.src});` +
+        `background-size:${e.img.w}px ${e.img.h}px;background-position:${-e.img.offX}px ${-e.img.offY}px`;
+    }
+    d.style.pointerEvents = 'auto'; d.style.cursor = 'move';
+    world.appendChild(d);
+  }
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.id = 'svg'; svg.setAttribute('width', SCENE.bg.w); svg.setAttribute('height', SCENE.bg.h);
+  world.appendChild(svg);
+  for (const a of S.added) {
+    if (a.type === 'arrow') {
+      const g = document.createElementNS(svg.namespaceURI, 'g');
+      const ang = Math.atan2(a.y2 - a.y1, a.x2 - a.x1), hl = 13;
+      const mk = (x1,y1,x2,y2,w,cls,col) => { const l = document.createElementNS(svg.namespaceURI,'line');
+        l.setAttribute('x1',x1);l.setAttribute('y1',y1);l.setAttribute('x2',x2);l.setAttribute('y2',y2);
+        l.setAttribute('stroke',col);l.setAttribute('stroke-width',w);l.setAttribute('stroke-linecap','round');
+        if(cls)l.setAttribute('class',cls); return l; };
+      g.appendChild(mk(a.x1,a.y1,a.x2,a.y2,16/view.k,'hit','transparent'));
+      g.appendChild(mk(a.x1,a.y1,a.x2,a.y2,3,null,a.color));
+      for (const s of [-1, 1]) g.appendChild(mk(a.x2, a.y2,
+        a.x2 - hl * Math.cos(ang + s * 0.42), a.y2 - hl * Math.sin(ang + s * 0.42), 3, null, a.color));
+      g.dataset.kind = 'add'; g.dataset.id = a.id; svg.appendChild(g);
+    } else {
+      const d = document.createElement('div');
+      d.className = 'obj ' + (a.type === 'text' ? 'txt' : 'shape');
+      d.dataset.kind = 'add'; d.dataset.id = a.id;
+      d.style.cssText = `left:${a.x}px;top:${a.y}px;width:${a.w}px;height:${a.h}px;transform:rotate(${a.rot}deg);cursor:move`;
+      if (a.type === 'rect') d.style.cssText += `;border:3px solid ${a.color};border-radius:4px`;
+      if (a.type === 'ellipse') d.style.cssText += `;border:3px solid ${a.color};border-radius:50%`;
+      if ((a.type === 'rect' || a.type === 'ellipse') && a.fill && a.fill !== 'none')
+        d.style.background = a.fill + '55';
+      if (a.type === 'text') { d.textContent = a.text; d.style.fontSize = a.fontSize + 'px'; d.style.color = a.color; }
+      world.appendChild(d);
+    }
+  }
+  for (const c of S.comments) {
+    const p = document.createElement('div');
+    p.className = 'pin' + (S.sel && S.sel.kind === 'pin' && S.sel.id === c.id ? ' sel' : '');
+    p.dataset.kind = 'pin'; p.dataset.id = c.id; p.textContent = c.n;
+    const s = 26 / view.k;
+    p.style.cssText += `;left:${c.x}px;top:${c.y - s}px;width:${s}px;height:${s}px;font-size:${13 / view.k}px`;
+    world.appendChild(p);
+  }
+  for (const g of guides) {
+    const d = document.createElement('div');
+    d.style.cssText = 'position:absolute;background:#ff4fd8;pointer-events:none;' + (g.axis === 'x'
+      ? `left:${g.v - 0.75 / view.k}px;top:${g.from}px;width:${1.5 / view.k}px;height:${g.to - g.from}px`
+      : `top:${g.v - 0.75 / view.k}px;left:${g.from}px;height:${1.5 / view.k}px;width:${g.to - g.from}px`);
+    world.appendChild(d);
+  }
+  drawSel(); renderSide();
+}
+
+function drawSel() {
+  document.getElementById('selbox')?.remove(); document.getElementById('rotbadge')?.remove();
+  if (S.multi.length > 1) {
+    for (const u of S.multi) {
+      const b = unitBox(u); if (!b) continue;
+      const d = document.createElement('div');
+      d.style.cssText = `position:absolute;left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px;` +
+        `border:${1.5 / view.k}px dashed var(--acc);pointer-events:none`;
+      world.appendChild(d);
+    }
+    return;
+  }
+  if (S.sel?.kind === 'group') {
+    const b = unitBox(S.sel); if (!b) return;
+    const box = document.createElement('div'); box.id = 'selbox';
+    box.style.cssText = `left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px;` +
+      `border-width:${1.5 / view.k}px;border-style:dashed`;
+    world.appendChild(box); return;
+  }
+  const o = get(S.sel); if (!o || S.sel.kind === 'pin' || o.hidden) return;
+  if (o.type === 'arrow') {
+    const box = document.createElement('div'); box.id = 'selbox';
+    for (const [i, x, y] of [[0, o.x1, o.y1], [1, o.x2, o.y2]]) {
+      const h = document.createElement('div'); h.className = 'hnd'; h.dataset.ep = i;
+      const s = 12 / view.k;
+      h.style.cssText = `left:${x - s/2}px;top:${y - s/2}px;width:${s}px;height:${s}px;border-radius:50%;cursor:grab`;
+      box.appendChild(h);
+    }
+    box.style.cssText = 'position:absolute;left:0;top:0;border:none'; world.appendChild(box); return;
+  }
+  const box = document.createElement('div'); box.id = 'selbox';
+  box.style.cssText = `left:${o.x}px;top:${o.y}px;width:${o.w}px;height:${o.h}px;` +
+    `transform:rotate(${o.rot}deg);border-width:${1.5 / view.k}px`;
+  const cur = ['nwse','ns','nesw','ew','nwse','ns','nesw','ew'];
+  const secs = Math.round((o.rot || 0) / 45);
+  HANDLES.forEach(([hx, hy], i) => {
+    const h = document.createElement('div'); h.className = 'hnd'; h.dataset.h = i;
+    const s = 11 / view.k;
+    h.style.cssText = `left:${hx * o.w - s/2}px;top:${hy * o.h - s/2}px;width:${s}px;height:${s}px;` +
+      `border-width:${1.5 / view.k}px;cursor:${cur[(i + secs % 8 + 8) % 8]}-resize`;
+    box.appendChild(h);
+  });
+  if (!S.crop) {
+    const r = document.createElement('div'); r.className = 'hnd rot'; r.dataset.h = 'rot';
+    const s = 12 / view.k;
+    r.style.cssText = `left:${o.w / 2 - s/2}px;top:${-30 / view.k - s/2}px;width:${s}px;height:${s}px;cursor:grab`;
+    box.appendChild(r);
+  }
+  world.appendChild(box);
+}
+const HANDLES = [[0,0],[0.5,0],[1,0],[1,0.5],[1,1],[0.5,1],[0,1],[0,0.5]]; // nw,n,ne,e,se,s,sw,w
+
+/* ---------- sidebar ---------- */
+function renderSide() {
+  const L = document.getElementById('layers'); L.innerHTML = '';
+  const row = (kind, o, name) => {
+    const grp = groupOf(kind, o.id);
+    const selected = (S.sel && S.sel.kind === kind && S.sel.id === o.id) ||
+      (S.sel?.kind === 'group' && grp?.id === S.sel.id) ||
+      S.multi.some(u => (u.kind === kind && u.id === o.id) || (u.kind === 'group' && grp?.id === u.id));
+    const r = document.createElement('div');
+    r.className = 'lrow' + (selected ? ' sel' : '');
+    r.innerHTML = `<span class="nm${o.hidden ? ' dim' : ''}">${grp ? '\u25A3 ' : ''}${name}</span>`;
+    if (kind === 'el') { const eye = document.createElement('button'); eye.className = 'eye';
+      eye.textContent = o.hidden ? '\uD83D\uDEAB' : '\uD83D\uDC41'; eye.title = o.hidden ? 'Show' : 'Hide';
+      eye.onclick = ev => { ev.stopPropagation(); o.hidden = !o.hidden; commit(); render(); };
+      r.appendChild(eye); }
+    r.onclick = () => { S.sel = grp ? {kind: 'group', id: grp.id} : {kind, id: o.id};
+      S.multi = []; S.crop = false; render(); };
+    L.appendChild(r);
+  };
+  [...S.added].reverse().forEach(a => row('add', a, {rect:'\u25AD Rectangle',ellipse:'\u25EF Ellipse',arrow:'\u2197 Arrow',text:'T ' + (a.text || 'Text')}[a.type]));
+  [...S.els].reverse().forEach(e => row('el', e, e.label));
+
+  const P = document.getElementById('props'); P.innerHTML = '';
+  cropBtn.style.display = (S.sel && S.sel.kind === 'el' && !get(S.sel)?.type && !S.multi.length) ? '' : 'none';
+  cropBtn.className = S.crop ? 'on' : '';
+  if (S.multi.length > 1) {
+    P.innerHTML = `<div class="full" style="color:var(--mut)">${S.multi.length} selected - drag moves all</div>`;
+    const g = document.createElement('button'); g.className = 'full primary';
+    g.textContent = 'Group (Ctrl+G)'; g.onclick = groupSelection; P.appendChild(g);
+    renderComments(); return;
+  }
+  if (S.sel?.kind === 'group') {
+    const grp = S.groups.find(g => g.id === S.sel.id);
+    P.innerHTML = `<div class="full" style="color:var(--mut)">Group of ${grp?.members.length ?? 0} - drag moves all</div>`;
+    const u = document.createElement('button'); u.className = 'full';
+    u.textContent = 'Ungroup (Ctrl+Shift+G)'; u.onclick = ungroupSelection; P.appendChild(u);
+    renderComments(); return;
+  }
+  const o = get(S.sel);
+  if (!o) { P.innerHTML = '<div class="full" style="color:var(--mut)">Nothing selected - shift-click selects several</div>'; renderComments(); return; }
+  if (S.sel.kind === 'pin') { P.innerHTML = '<div class="full" style="color:var(--mut)">Comment pin -- edit text below</div>'; renderComments(); return; }
+  const num = (lab, key, step = 1) => {
+    const l = document.createElement('label'); l.textContent = lab;
+    const i = document.createElement('input'); i.type = 'number'; i.step = step;
+    i.value = Math.round((o[key] ?? 0) * 10) / 10;
+    i.onchange = () => { o[key] = parseFloat(i.value) || 0; commit(); render(); };
+    l.appendChild(i); P.appendChild(l);
+  };
+  if (o.type === 'arrow') { num('X1','x1'); num('Y1','y1'); num('X2','x2'); num('Y2','y2'); }
+  else { num('X','x'); num('Y','y'); num('W','w'); num('H','h'); num('Rot \u00B0','rot');
+    const dp = document.createElement('div'); dp.className = 'full'; dp.style.color = 'var(--mut)';
+    const f = v => Math.round(v * ESC / PXDP);
+    dp.textContent = `\u2248 ${f(o.x)}, ${f(o.y)} \u00B7 ${f(o.w)}\u00D7${f(o.h)} dp`; P.appendChild(dp);
+    const r90 = document.createElement('button'); r90.className = 'full';
+    r90.textContent = 'Rotate +90\u00B0';
+    r90.onclick = () => { o.rot = ((o.rot || 0) + 90) % 360; commit(); render(); };
+    P.appendChild(r90); }
+  if (S.sel.kind === 'add') {
+    if (o.type === 'text') num('Font px', 'fontSize');
+    const swLbl = document.createElement('div'); swLbl.className = 'full';
+    swLbl.style.cssText = 'font-size:11px;color:var(--mut)';
+    swLbl.textContent = o.type === 'text' ? 'Color' : 'Stroke';
+    P.appendChild(swLbl);
+    const sw = document.createElement('div'); sw.className = 'swatches full';
+    for (const c of ['#ff5555','#ffb020','#ffd24a','#58d68d','#5dade2','#ffffff']) {
+      const b = document.createElement('div'); b.className = 'sw' + (o.color === c ? ' on' : '');
+      b.style.background = c; b.onclick = () => { o.color = c; commit(); render(); }; sw.appendChild(b);
+    } P.appendChild(sw);
+    if (o.type === 'rect' || o.type === 'ellipse') {
+      const fLbl = document.createElement('div'); fLbl.className = 'full';
+      fLbl.style.cssText = 'font-size:11px;color:var(--mut)'; fLbl.textContent = 'Fill';
+      P.appendChild(fLbl);
+      const fw = document.createElement('div'); fw.className = 'swatches full';
+      const none = document.createElement('div');
+      none.className = 'sw' + (!o.fill || o.fill === 'none' ? ' on' : '');
+      none.title = 'No fill';
+      none.style.cssText += ';background:repeating-linear-gradient(45deg,#2a2c31,#2a2c31 3px,#4a4e56 3px,#4a4e56 6px)';
+      none.onclick = () => { o.fill = 'none'; commit(); render(); };
+      fw.appendChild(none);
+      for (const c of ['#ff5555','#ffb020','#ffd24a','#58d68d','#5dade2','#ffffff']) {
+        const b = document.createElement('div'); b.className = 'sw' + (o.fill === c ? ' on' : '');
+        b.style.background = c; b.onclick = () => { o.fill = c; commit(); render(); }; fw.appendChild(b);
+      } P.appendChild(fw);
+    }
+    const del = document.createElement('button'); del.className = 'full'; del.textContent = 'Delete';
+    del.onclick = () => { S.added = S.added.filter(a => a.id !== o.id); S.sel = null; commit(); render(); };
+    P.appendChild(del);
+  } else {
+    if (o.type === 'text') {
+      const edit = document.createElement('button'); edit.className = 'full';
+      edit.textContent = 'Edit text';
+      edit.onclick = () => startElTextEdit(o);
+      P.appendChild(edit);
+      const fl = document.createElement('label'); fl.textContent = 'Font px';
+      const fi = document.createElement('input'); fi.type = 'number'; fi.step = 1;
+      fi.value = Math.round(o.fontPx);
+      fi.onchange = () => { o.fontPx = Math.max(4, parseFloat(fi.value) || o.fontPx);
+        refitTextHeight(o); commit(); render(); };
+      fl.appendChild(fi); P.appendChild(fl);
+      const sw = document.createElement('div'); sw.className = 'swatches full';
+      for (const c of [o.orig.color || '#e6e1e6', '#ffffff', '#9a9ea6', '#ffd24a', '#ff5555', '#58d68d']) {
+        const b = document.createElement('div'); b.className = 'sw' + (o.color === c ? ' on' : '');
+        b.style.background = c; b.onclick = () => { o.color = c; commit(); render(); }; sw.appendChild(b);
+      } P.appendChild(sw);
+    }
+    const reset = document.createElement('button'); reset.className = 'full'; reset.textContent = 'Reset to original';
+    reset.onclick = () => {
+      if (o.type === 'text') Object.assign(o, {x:o.orig.x, y:o.orig.y, w:o.orig.w, h:o.orig.h,
+        rot:o.orig.rot, hidden:false, text:o.orig.text, fontPx:o.orig.fontPx, color:o.orig.color});
+      else Object.assign(o, o.orig, {hidden:false, img:{w:o.orig.w,h:o.orig.h,offX:0,offY:0}});
+      commit(); render(); };
+    P.appendChild(reset);
+  }
+  renderComments();
+}
+function renderComments() {
+  const C = document.getElementById('clist'); C.innerHTML = '';
+  for (const c of S.comments) {
+    const r = document.createElement('div'); r.className = 'crow';
+    r.innerHTML = `<span class="num">${c.n}</span>`;
+    const t = document.createElement('textarea'); t.value = c.text; t.placeholder = 'Describe the change\u2026';
+    t.dataset.cid = c.id;
+    t.onfocus = () => {
+      if (S.sel?.kind === 'pin' && S.sel.id === c.id) return;   // already selected: keep focus
+      S.sel = {kind: 'pin', id: c.id}; render();
+      document.querySelector(`#clist textarea[data-cid="${c.id}"]`)?.focus();
+    };
+    t.oninput = () => { c.text = t.value; };   // sync per keystroke so re-renders can't eat drafts
+    t.onchange = () => commit();
+    const d = document.createElement('button'); d.className = 'del'; d.textContent = '\u2715';
+    d.onclick = () => { S.comments = S.comments.filter(x => x.id !== c.id); S.sel = null; commit(); render(); };
+    r.appendChild(t); r.appendChild(d); C.appendChild(r);
+  }
+  if (!S.comments.length) C.innerHTML = '<div style="padding:2px 12px;color:var(--mut)">Use the Comment tool to pin notes.</div>';
+}
+
+/* ---------- pointer interactions ---------- */
+const cap = e => { try { vp.setPointerCapture(e.pointerId); } catch (_) {} };
+let drag = null, spaceDown = false, lastDown = null;
+vp.addEventListener('pointerdown', e => {
+  if (e.button === 1 || spaceDown) { drag = {mode:'pan', sx:e.clientX, sy:e.clientY, vx:view.x, vy:view.y};
+    cap(e); e.preventDefault(); return; }
+  if (e.button !== 0) return;
+  // Commit any in-progress text edit before render() can destroy it; clicks inside
+  // the editing label fall through so the browser can place the caret.
+  const ed = world.querySelector('.txt[contenteditable="true"],.eltxt[contenteditable="true"]');
+  if (ed) { if (ed.contains(e.target)) return; ed.blur(); }
+  const [wx, wy] = toWorld(e);
+  const t = e.target;
+  if (t.classList?.contains('hnd')) {
+    const o = get(S.sel);
+    if (t.dataset.ep !== undefined) drag = {mode:'arrowEp', ep:+t.dataset.ep, o};
+    else if (t.dataset.h === 'rot') drag = {mode:'rotate', o, start:o.rot || 0};
+    else drag = {mode: S.crop ? 'crop' : 'resize', h:+t.dataset.h, o,
+      o0: JSON.parse(JSON.stringify(o))};
+    cap(e); e.preventDefault(); return;
+  }
+  if (S.tool === 'select') {
+    const hit = t.closest?.('[data-kind]') || (t.dataset?.kind ? t : null);
+    if (!hit) { S.sel = null; S.multi = []; S.crop = false; lastDown = null; render(); cap(e); return; }
+    const kind = hit.dataset.kind;
+    const id = kind === 'pin' ? +hit.dataset.id : hit.dataset.id;
+    const key = kind + ':' + id;
+    // Detect double-clicks from repeat pointerdowns: selection re-renders destroy
+    // the clicked node between clicks, which defeats the native dblclick event.
+    // Keyed on the raw object so text inside a group is still editable.
+    if (!e.shiftKey && lastDown && lastDown.key === key && e.timeStamp - lastDown.t < 450 &&
+        Math.hypot(e.clientX - lastDown.x, e.clientY - lastDown.y) < 6) {
+      lastDown = null;
+      const o = get({kind, id});
+      if (kind === 'add' && o?.type === 'text') { startTextEdit(o); return; }
+      if (kind === 'el' && o?.type === 'text') { startElTextEdit(o); return; }
+    } else { lastDown = {t: e.timeStamp, x: e.clientX, y: e.clientY, key}; }
+    // Clicking a group member selects the whole group.
+    const grp = kind !== 'pin' ? groupOf(kind, id) : null;
+    const unit = grp ? {kind: 'group', id: grp.id} : {kind, id};
+    if (e.shiftKey && kind !== 'pin') {
+      const cur = S.multi.length ? [...S.multi]
+        : (S.sel && S.sel.kind !== 'pin' ? [S.sel] : []);
+      const i = cur.findIndex(u => u.kind === unit.kind && u.id === unit.id);
+      if (i >= 0) cur.splice(i, 1); else cur.push(unit);
+      S.multi = cur.length > 1 ? cur : [];
+      S.sel = cur.length === 1 ? cur[0] : null;
+      S.crop = false; render(); cap(e); return;
+    }
+    const inMulti = S.multi.some(u => u.kind === unit.kind && u.id === unit.id);
+    if (!inMulti) { S.sel = unit; S.multi = []; }
+    S.crop = false;
+    const units = S.multi.length > 1 ? S.multi : [S.sel];
+    const objs = units.flatMap(u => unitObjs(u));
+    drag = {mode: 'maybeMove', units, objs,
+      starts: objs.map(o => o.x1 !== undefined
+        ? {x1: o.x1, y1: o.y1, x2: o.x2, y2: o.y2} : {x: o.x, y: o.y}),
+      startBox: unionBox(objs),
+      sx: wx, sy: wy, sx0: e.clientX, sy0: e.clientY};
+    render();
+    cap(e); return;
+  }
+  // creation tools
+  if (S.tool === 'comment') {
+    const c = {id: S.nextPin, n: S.nextPin++, x: wx, y: wy, text: ''};
+    S.comments.push(c); S.sel = {kind:'pin', id:c.id}; S.tool = 'select'; toolBtns();
+    commit(); render(); return;
+  }
+  if (S.tool === 'text') {
+    const a = {id:'t' + S.nextShape++, type:'text', x:wx, y:wy - 16, w:260, h:40, rot:0,
+      color:'#ffd24a', fontSize:28, text:'Label'};
+    S.added.push(a); S.sel = {kind:'add', id:a.id}; S.tool = 'select'; toolBtns();
+    commit(); render(); startTextEdit(a); return;
+  }
+  drag = {mode:'create', type:S.tool, sx:wx, sy:wy, obj:null};
+  cap(e);
+});
+
+vp.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const [wx, wy] = toWorld(e);
+  if (drag.mode === 'pan') { view.x = drag.vx + e.clientX - drag.sx; view.y = drag.vy + e.clientY - drag.sy; render(); return; }
+  if (drag.mode === 'maybeMove') {
+    if (Math.hypot(e.clientX - drag.sx0, e.clientY - drag.sy0) < 3) return;
+    drag.mode = 'move';
+  }
+  if (drag.mode === 'move') {
+    let dx = wx - drag.sx, dy = wy - drag.sy;
+    guides = [];
+    if (!e.altKey && drag.startBox) {
+      const box = {x: drag.startBox.x + dx, y: drag.startBox.y + dy,
+        w: drag.startBox.w, h: drag.startBox.h};
+      const sn = computeSnap(box, new Set(drag.objs));
+      if (sn.x) { dx += sn.x.d;
+        guides.push({axis: 'x', v: sn.x.v,
+          from: Math.min(box.y, sn.x.ob.y) - 8 / view.k,
+          to: Math.max(box.y + box.h, sn.x.ob.y + sn.x.ob.h) + 8 / view.k}); }
+      if (sn.y) { dy += sn.y.d;
+        guides.push({axis: 'y', v: sn.y.v,
+          from: Math.min(box.x, sn.y.ob.x) - 8 / view.k,
+          to: Math.max(box.x + box.w, sn.y.ob.x + sn.y.ob.w) + 8 / view.k}); }
+    }
+    drag.objs.forEach((o, i) => { Object.assign(o, drag.starts[i]); translateObj(o, dx, dy); });
+    render(); return;
+  }
+  if (drag.mode === 'rotate') {
+    const o = drag.o, cx = o.x + o.w / 2, cy = o.y + o.h / 2;
+    let a = Math.atan2(wy - cy, wx - cx) / D2R + 90;
+    if (e.shiftKey) a = Math.round(a / 15) * 15;
+    else {
+      // Magnet to the quarter turns - close-enough lands exactly on 0/90/180/270.
+      const q = Math.round(a / 90) * 90;
+      if (Math.abs(((a - q + 180) % 360) - 180) <= 6) a = q;
+    }
+    o.rot = ((a % 360) + 360) % 360;
+    render(); badge(o, Math.round(o.rot) + '\u00B0'); return;
+  }
+  if (drag.mode === 'resize' || drag.mode === 'crop') { doResize(drag, wx, wy, e.shiftKey); render(); return; }
+  if (drag.mode === 'arrowEp') { const o = drag.o;
+    if (drag.ep === 0) { o.x1 = wx; o.y1 = wy; } else { o.x2 = wx; o.y2 = wy; } render(); return; }
+  if (drag.mode === 'create') {
+    const x = Math.min(drag.sx, wx), y = Math.min(drag.sy, wy);
+    const w = Math.abs(wx - drag.sx), h = Math.abs(wy - drag.sy);
+    if (!drag.obj && (w > 4 || h > 4)) {
+      drag.obj = drag.type === 'arrow'
+        ? {id:'s' + S.nextShape++, type:'arrow', x1:drag.sx, y1:drag.sy, x2:wx, y2:wy, color:'#ff5555'}
+        : {id:'s' + S.nextShape++, type:drag.type, x, y, w, h, rot:0, color:'#ff5555'};
+      S.added.push(drag.obj);
+    }
+    if (drag.obj) {
+      if (drag.obj.type === 'arrow') { drag.obj.x2 = wx; drag.obj.y2 = wy; }
+      else Object.assign(drag.obj, {x, y, w: Math.max(4, w), h: Math.max(4, h)});
+      render();
+    }
+  }
+});
+
+function endDrag() {
+  if (!drag) return;
+  const was = drag; drag = null;
+  document.getElementById('rotbadge')?.remove();
+  if (guides.length) { guides = []; render(); }
+  if (was.mode === 'maybeMove' || was.mode === 'pan') return;
+  if (was.mode === 'create') { if (was.obj) { S.sel = {kind:'add', id:was.obj.id}; S.tool = 'select'; toolBtns(); commit(); } render(); return; }
+  commit();
+}
+vp.addEventListener('pointerup', endDrag);
+vp.addEventListener('pointercancel', endDrag);
+
+function doResize(d, wx, wy, keepAspect) {
+  const o = d.o, o0 = d.o0, h = d.h;
+  const [hx, hy] = HANDLES[h];                       // 0|0.5|1 in unit box
+  const ax = 1 - hx, ay = 1 - hy;                    // anchor unit pos (opposite)
+  // anchor world position (fixed)
+  const th = (o0.rot || 0) * D2R;
+  const c0 = [o0.x + o0.w / 2, o0.y + o0.h / 2];
+  const aLoc0 = [ax * o0.w - o0.w / 2, ay * o0.h - o0.h / 2];
+  const aW = [c0[0] + rot2(aLoc0[0], aLoc0[1], th)[0], c0[1] + rot2(aLoc0[0], aLoc0[1], th)[1]];
+  // pointer in local frame of the ORIGINAL box (anchor as origin)
+  const [pl, pt] = rot2(wx - aW[0], wy - aW[1], -th);
+  // Signed clamp, not abs: crossing the anchor pins the box at min size instead of mirroring.
+  let nw = hx === 0.5 ? o0.w : Math.max(6, hx === 1 ? pl : -pl);
+  let nh = hy === 0.5 ? o0.h : Math.max(6, hy === 1 ? pt : -pt);
+  if (d.mode === 'resize' && S.sel?.kind === 'el' && o.type === 'text' &&
+      hx === 0.5 && hy !== 0.5) {
+    nh = Math.max(nh, measureTextH(o.text, d.o0.fontPx, o0.w));
+  }
+  if (d.mode === 'crop') {
+    // The crop window can't grow past the source image; clamp BEFORE the centre is
+    // computed or the fixed anchor would slide.
+    if (hx === 0) nw = Math.min(nw, o0.img.offX + o0.w);
+    if (hx === 1) nw = Math.min(nw, o0.img.w - o0.img.offX);
+    if (hy === 0) nh = Math.min(nh, o0.img.offY + o0.h);
+    if (hy === 1) nh = Math.min(nh, o0.img.h - o0.img.offY);
+  }
+  if (keepAspect && hx !== 0.5 && hy !== 0.5) {
+    // Track whichever axis the pointer pulled farther (Excalidraw behaviour).
+    const ratio = Math.max(nw / o0.w, nh / o0.h);
+    nw = o0.w * ratio; nh = o0.h * ratio;
+  }
+  // new centre from fixed anchor
+  const sgnX = hx === 0.5 ? 0 : (hx > ax ? 1 : -1);
+  const sgnY = hy === 0.5 ? 0 : (hy > ay ? 1 : -1);
+  const cLoc = [sgnX * nw / 2, sgnY * nh / 2];
+  const cW = [aW[0] + rot2(cLoc[0], cLoc[1], th)[0], aW[1] + rot2(cLoc[0], cLoc[1], th)[1]];
+  const prevW = o.w, prevH = o.h;
+  o.w = nw; o.h = nh; o.x = cW[0] - nw / 2; o.y = cW[1] - nh / 2;
+  if (S.sel?.kind === 'el' && o.type === 'text') {
+    if (hy === 0.5 && hx !== 0.5) refitTextHeight(o);        // sides: reflow, font unchanged
+    else if (hx !== 0.5 && hy !== 0.5) o.fontPx = d.o0.fontPx * (o.h / o0.h);  // corners: scale text
+    // top/bottom: height only, pre-clamped above so text can never clip
+  }
+  if (S.sel?.kind === 'el' && o.img) {
+    if (d.mode === 'crop') {
+      // image stays put: window slides. Compute how much the left/top edge moved in local space.
+      if (hx === 0) o.img.offX = d.o0.img.offX + (o0.w - nw);
+      if (hy === 0) o.img.offY = d.o0.img.offY + (o0.h - nh);
+      if (hx !== 0) o.img.offX = d.o0.img.offX;
+      if (hy !== 0) o.img.offY = d.o0.img.offY;
+      o.img.w = d.o0.img.w; o.img.h = d.o0.img.h;
+      // clamp: window must stay inside image
+      o.img.offX = Math.max(0, Math.min(o.img.offX, o.img.w - o.w));
+      o.img.offY = Math.max(0, Math.min(o.img.offY, o.img.h - o.h));
+      o.w = Math.min(o.w, o.img.w - o.img.offX); o.h = Math.min(o.h, o.img.h - o.img.offY);
+    } else {
+      const fx = o.w / o0.w, fy = o.h / o0.h;
+      o.img.w = d.o0.img.w * fx; o.img.h = d.o0.img.h * fy;
+      o.img.offX = d.o0.img.offX * fx; o.img.offY = d.o0.img.offY * fy;
+    }
+  }
+}
+
+// Measure wrapped text height at a given width, in world px, same styling as .eltxt.
+function measureTextH(text, fontPx, width) {
+  const m = document.createElement('div');
+  m.style.cssText = `position:absolute;visibility:hidden;left:-99999px;width:${width}px;` +
+    `font-size:${fontPx}px;line-height:1.3;white-space:pre-wrap;font-family:system-ui,Roboto,sans-serif`;
+  m.textContent = text || ' ';
+  world.appendChild(m);
+  const h = m.offsetHeight; m.remove();
+  return Math.max(6, h);
+}
+// Slides-style autofit: set a new height with the LOCAL TOP edge pinned, so the
+// box grows/shrinks at the bottom regardless of rotation.
+function refitTextHeight(o) {
+  const fitH = measureTextH(o.text, o.fontPx, o.w);
+  const dh = fitH - o.h;
+  if (Math.abs(dh) < 0.5) return;
+  const th = (o.rot || 0) * D2R;
+  const cx = o.x + o.w / 2 + rot2(0, dh / 2, th)[0];
+  const cy = o.y + o.h / 2 + rot2(0, dh / 2, th)[1];
+  o.h = fitH; o.x = cx - o.w / 2; o.y = cy - fitH / 2;
+}
+
+function badge(o, txt) {
+  document.getElementById('rotbadge')?.remove();
+  const b = document.createElement('div'); b.id = 'rotbadge'; b.textContent = txt;
+  b.style.left = o.x + 'px'; b.style.top = (o.y - 46 / view.k) + 'px';
+  b.style.fontSize = 11 / view.k + 'px'; world.appendChild(b);
+}
+
+/* ---------- text editing ---------- */
+function startTextEdit(a) {
+  const d = world.querySelector(`[data-id="${a.id}"].txt`); if (!d || d.isContentEditable) return;
+  d.contentEditable = 'true'; d.focus();
+  const sel = getSelection(); sel.selectAllChildren(d);
+  const done = () => { a.text = d.textContent.trim() || 'Label'; d.contentEditable = 'false'; commit(); render(); };
+  d.onblur = done;
+  d.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); d.blur(); } ev.stopPropagation(); };
+}
+world.addEventListener('dblclick', e => {
+  const t = e.target.closest?.('.txt');
+  if (t) { const a = S.added.find(x => x.id === t.dataset.id); if (a) startTextEdit(a); return; }
+  const et = e.target.closest?.('.eltxt'); if (!et) return;
+  const el = S.els.find(x => x.id === et.dataset.id); if (el) startElTextEdit(el);
+});
+function startElTextEdit(el) {
+  const d = world.querySelector(`.eltxt[data-id="${el.id}"]`); if (!d || d.isContentEditable) return;
+  d.contentEditable = 'true'; d.focus();
+  getSelection().selectAllChildren(d);
+  const done = () => { el.text = d.innerText.replace(/\n$/, ''); d.contentEditable = 'false';
+    refitTextHeight(el); commit(); render(); };
+  d.onblur = done;
+  // Enter stays a newline here - element text can be multiline; Escape commits.
+  d.onkeydown = ev => { if (ev.key === 'Escape') { ev.preventDefault(); d.blur(); } ev.stopPropagation(); };
+}
+
+/* ---------- wheel: pan / ctrl-zoom ---------- */
+vp.addEventListener('wheel', e => {
+  e.preventDefault();
+  const mult = e.deltaMode === 1 ? 16 : 1;
+  if (e.ctrlKey || e.metaKey) {
+    const r = vp.getBoundingClientRect(), cx = e.clientX - r.left, cy = e.clientY - r.top;
+    const k2 = Math.min(6, Math.max(0.1, view.k * Math.exp(-e.deltaY * mult * 0.0022)));
+    view.x = cx - (cx - view.x) * (k2 / view.k);
+    view.y = cy - (cy - view.y) * (k2 / view.k);
+    view.k = k2;
+  } else if (e.shiftKey) { view.x -= e.deltaY * mult; }
+  else { view.x -= e.deltaX * mult; view.y -= e.deltaY * mult; }
+  render();
+}, {passive: false});
+
+function fit() {
+  const r = vp.getBoundingClientRect();
+  view.k = Math.min((r.width - 70) / SCENE.bg.w, (r.height - 70) / SCENE.bg.h);
+  view.x = (r.width - SCENE.bg.w * view.k) / 2;
+  view.y = (r.height - SCENE.bg.h * view.k) / 2;
+  render();
+}
+
+/* ---------- toolbar & keys ---------- */
+function toolBtns() { document.querySelectorAll('[data-tool]').forEach(b =>
+  b.classList.toggle('on', b.dataset.tool === S.tool)); }
+document.querySelectorAll('[data-tool]').forEach(b =>
+  b.onclick = () => { S.tool = b.dataset.tool; S.crop = false; toolBtns(); render(); });
+cropBtn.onclick = () => { S.crop = !S.crop; render(); };
+undoBtn.onclick = undo; redoBtn.onclick = redo;
+zIn.onclick = () => { view.k = Math.min(6, view.k * 1.25); render(); };
+zOut.onclick = () => { view.k = Math.max(0.1, view.k / 1.25); render(); };
+zFit.onclick = fit;
+
+addEventListener('keydown', e => {
+  if (e.target.matches('input,textarea,[contenteditable=true]')) return;
+  if (e.code === 'Space') { spaceDown = true; vp.style.cursor = 'grab'; e.preventDefault(); return; }
+  const k = e.key.toLowerCase();
+  if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); return; }
+  if ((e.ctrlKey || e.metaKey) && k === 'g') { e.preventDefault();
+    e.shiftKey ? ungroupSelection() : groupSelection(); return; }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;   // don't let Ctrl+C/R/A hit tool hotkeys
+  if (k === 'v') { S.tool = 'select'; toolBtns(); }
+  if (k === 'r') { S.tool = 'rect'; toolBtns(); }
+  if (k === 'o') { S.tool = 'ellipse'; toolBtns(); }
+  if (k === 'a') { S.tool = 'arrow'; toolBtns(); }
+  if (k === 't') { S.tool = 'text'; toolBtns(); }
+  if (k === 'c') { S.tool = 'comment'; toolBtns(); }
+  if (k === 'escape') { S.crop = false; S.sel = null; S.multi = []; S.tool = 'select'; toolBtns(); render(); }
+  if (k === 'delete' || k === 'backspace') {
+    const units = S.multi.length ? S.multi : (S.sel ? [S.sel] : []);
+    if (!units.length) return;
+    const delOne = m => {
+      if (m.kind === 'add') S.added = S.added.filter(a => a.id !== m.id);
+      else if (m.kind === 'pin') S.comments = S.comments.filter(c => c.id !== m.id);
+      else { const o = get(m); if (o) o.hidden = true; }
+    };
+    for (const u of units) {
+      if (u.kind === 'group') {
+        const g = S.groups.find(g => g.id === u.id);
+        for (const m of g?.members ?? []) delOne(m);
+        S.groups = S.groups.filter(x => x.id !== u.id);
+      } else delOne(u);
+    }
+    S.sel = null; S.multi = []; commit(); render();
+  }
+  if (k.startsWith('arrow')) {
+    const units = S.multi.length ? S.multi : (S.sel && S.sel.kind !== 'pin' ? [S.sel] : []);
+    const objs = units.flatMap(u => u.kind === 'pin' ? [] : unitObjs(u));
+    if (!objs.length) return;
+    const d = e.shiftKey ? 10 : 1;
+    const dx = k === 'arrowleft' ? -d : k === 'arrowright' ? d : 0;
+    const dy = k === 'arrowup' ? -d : k === 'arrowdown' ? d : 0;
+    for (const o of objs) translateObj(o, dx, dy);
+    e.preventDefault(); commit(); render();
+  }
+});
+addEventListener('keyup', e => { if (e.code === 'Space') { spaceDown = false; vp.style.cursor = 'default'; } });
+document.getElementById('notes').onchange = e => { S.notes = e.target.value; commit(); };
+
+/* ---------- export ---------- */
+const toDev = v => Math.round(v * ESC);
+const toDp = v => Math.round(v * ESC / PXDP * 10) / 10;
+const rect = o => ({x: toDev(o.x), y: toDev(o.y), w: toDev(o.w), h: toDev(o.h), rot: Math.round((o.rot || 0) * 10) / 10});
+const rectDp = o => ({x: toDp(o.x), y: toDp(o.y), w: toDp(o.w), h: toDp(o.h)});
+function buildExport() {
+  const EPS = 0.75;
+  const moved = [], unchanged = [], hidden = [];
+  for (const e of S.els) {
+    if (e.hidden) { hidden.push(e.id); continue; }
+    const d = {dx: e.x - e.orig.x, dy: e.y - e.orig.y, dw: e.w - e.orig.w, dh: e.h - e.orig.h, drot: (e.rot || 0)};
+    const cropped = !!e.img && (e.img.offX > EPS || e.img.offY > EPS ||
+      Math.abs(e.img.w - e.w) > EPS || Math.abs(e.img.h - e.h) > EPS);
+    const textChanged = e.type === 'text' && e.text !== e.orig.text;
+    const styleChanged = e.type === 'text' &&
+      (Math.abs(e.fontPx - e.orig.fontPx) > 0.5 || e.color !== e.orig.color);
+    if (Math.abs(d.dx) < EPS && Math.abs(d.dy) < EPS && Math.abs(d.dw) < EPS &&
+        Math.abs(d.dh) < EPS && Math.abs(d.drot) < 0.5 && !cropped && !textChanged && !styleChanged) { unchanged.push(e.id); continue; }
+    moved.push({id: e.id, label: e.label,
+      text_changed: textChanged ? {before: e.orig.text, after: e.text} : null,
+      text_style: styleChanged ? {
+        font_px_before: toDev(e.orig.fontPx), font_px_after: toDev(e.fontPx),
+        font_sp_after: Math.round(toDev(e.fontPx) / PXDP * 10) / 10,
+        color_before: e.orig.color, color_after: e.color} : null,
+      before_px: rect(e.orig), after_px: rect(e),
+      before_dp: rectDp(e.orig), after_dp: rectDp(e),
+      delta_px: {dx: toDev(d.dx), dy: toDev(d.dy), dw: toDev(d.dw), dh: toDev(d.dh), drot: Math.round(d.drot * 10) / 10},
+      crop: cropped ? {src_frac: (() => {
+        const r3 = v => Math.round(v * 1000) / 1000;
+        const x = r3(e.img.offX / e.img.w), y = r3(e.img.offY / e.img.h);
+        return {x, y,
+          w: Math.min(r3(e.w / e.img.w), r3(1 - x)),   // clamp: rounding must not overflow the source
+          h: Math.min(r3(e.h / e.img.h), r3(1 - y))};
+      })()} : null});
+  }
+  return {
+    format: 'interface-modify/v1',
+    app: SCENE.meta.app, screen: SCENE.meta.screen,
+    device: {w_px: SCENE.meta.deviceW, h_px: SCENE.meta.deviceH,
+      density_dpi: SCENE.meta.density, px_per_dp: PXDP,
+      units: `all *_px are physical device pixels; dp = px / ${PXDP}. ` +
+        'Rects are un-rotated boxes; rot is degrees clockwise about the rect centre.'},
+    elements_moved: moved, elements_unchanged: unchanged, elements_hidden: hidden,
+    annotations: S.added.map(a => a.type === 'arrow'
+      ? {type: 'arrow', from_px: {x: toDev(a.x1), y: toDev(a.y1)}, to_px: {x: toDev(a.x2), y: toDev(a.y2)},
+         from_near: nearest(a.x1, a.y1)?.id, to_near: nearest(a.x2, a.y2)?.id, color: a.color}
+      : {type: a.type, px: rect(a), dp: rectDp(a), text: a.text ?? null, color: a.color,
+         fill: (a.fill && a.fill !== 'none') ? a.fill : null}),
+    groups: S.groups.map(g => ({id: g.id, members: g.members.map(m => m.id)})),
+    comments: S.comments.filter(c => c.text.trim()).map(c => ({n: c.n,
+      at_px: {x: toDev(c.x), y: toDev(c.y)}, near: nearest(c.x, c.y)?.label, text: c.text.trim()})),
+    notes: S.notes.trim() || null,
+  };
+}
+function showToast(t) { const el = document.getElementById('toast'); el.textContent = t;
+  el.style.display = 'block'; setTimeout(() => el.style.display = 'none', 2400); }
+function execCopy(txt) {
+  // display:none breaks select(); keep it rendered but invisible off-screen.
+  const ta = document.createElement('textarea');
+  ta.value = txt;
+  ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (_) {}
+  ta.remove(); return ok;
+}
+copyBtn.onclick = () => {
+  // Serialize synchronously and try execCommand first, inside the click's user
+  // activation -- the async clipboard API is Permissions-Policy-blocked in the
+  // sandboxed artifact iframe on Chromium, and any await before a fallback
+  // would burn the transient activation execCommand needs.
+  const txt = JSON.stringify(buildExport(), null, 1);
+  if (execCopy(txt)) { showToast('Copied \u2014 paste it to Claude'); return; }
+  navigator.clipboard?.writeText(txt).then(
+    () => showToast('Copied \u2014 paste it to Claude'),
+    () => { modalTxt.value = txt; modal.classList.add('open'); modalTxt.focus(); modalTxt.select(); }
+  ) ?? (modalTxt.value = txt, modal.classList.add('open'));
+};
+dlBtn.onclick = () => {
+  const txt = JSON.stringify(buildExport(), null, 1);
+  try {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([txt], {type: 'application/json'}));
+    a.download = SCENE.meta.screen + '-edits.json'; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  } catch (_) { modalTxt.value = txt; modal.classList.add('open'); }
+};
+modalClose.onclick = () => modal.classList.remove('open');
+modalSelect.onclick = () => { modalTxt.focus(); modalTxt.select(); };
+
+/* ---------- boot ---------- */
+commit(); fit();
+addEventListener('resize', fit);
+</script>
