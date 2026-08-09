@@ -690,12 +690,18 @@ function doResize(d, wx, wy, keepAspect, fromCenter) {
   let nh = hy === 0.5 ? o0.h : Math.max(6, hy === 1 ? pt : -pt);
   const symmetric = fromCenter && d.mode !== 'crop';
   if (symmetric) {
-    // Ctrl: the pointer sets the half-extent; both sides grow about the centre.
+    // Ctrl: the pointer sets the half-extent; both sides grow about the centre...
     if (hx !== 0.5) nw = Math.max(6, 2 * nw - o0.w);
     if (hy !== 0.5) nh = Math.max(6, 2 * nh - o0.h);
+    // ...and the scale is UNIFORM: the dragged axis drives one factor, both
+    // axes follow, so the element scales linearly instead of squishing.
+    const ratio = hx === 0.5 ? nh / o0.h
+                : hy === 0.5 ? nw / o0.w
+                : Math.max(nw / o0.w, nh / o0.h);
+    nw = Math.max(6, o0.w * ratio); nh = Math.max(6, o0.h * ratio);
   }
   if (d.mode === 'resize' && S.sel?.kind === 'el' && o.type === 'text' &&
-      hx === 0.5 && hy !== 0.5) {
+      hx === 0.5 && hy !== 0.5 && !symmetric) {
     nh = Math.max(nh, measureTextH(o.text, d.o0.fontPx, o0.w));
   }
   if (d.mode === 'crop') {
@@ -723,7 +729,8 @@ function doResize(d, wx, wy, keepAspect, fromCenter) {
   const prevW = o.w, prevH = o.h;
   o.w = nw; o.h = nh; o.x = cW[0] - nw / 2; o.y = cW[1] - nh / 2;
   if (S.sel?.kind === 'el' && o.type === 'text') {
-    if (hy === 0.5 && hx !== 0.5) refitTextHeight(o);        // sides: reflow, font unchanged
+    if (symmetric) o.fontPx = d.o0.fontPx * (o.h / o0.h);    // Ctrl: uniform, text scales too
+    else if (hy === 0.5 && hx !== 0.5) refitTextHeight(o);   // sides: reflow, font unchanged
     else if (hx !== 0.5 && hy !== 0.5) o.fontPx = d.o0.fontPx * (o.h / o0.h);  // corners: scale text
     // top/bottom: height only, pre-clamped above so text can never clip
   }
