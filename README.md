@@ -1,7 +1,13 @@
 # interface-modify
 
-A visual **"mini-Figma" round-trip editor for Android app screens**, packaged as a
-[Claude Code](https://claude.com/claude-code) skill.
+**Intuitive Android interface modifying for Claude.**
+
+Stop describing UI changes in words. This [Claude Code](https://claude.com/claude-code)
+skill turns any screen of your Android app into a mini-Figma editor — you drag the real UI
+elements where you want them, and Claude writes the layout code to match. Every edit round-
+trips through a **structured JSON export** (before/after geometry in px *and* dp, rewritten
+text, groups, annotated comments) that you can also use standalone: version it, diff it, or
+feed it to any other tool.
 
 Tell Claude `/interface-modify main_screen landscape` and it:
 
