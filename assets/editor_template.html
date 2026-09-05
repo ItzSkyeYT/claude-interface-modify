@@ -78,13 +78,14 @@ kbd{opacity:.55;font-size:10px;margin-left:4px}
     <button id="zIn" class="ghost">+</button>
     <span id="zPct" style="color:var(--mut);min-width:42px;text-align:center">100%</span>
     <span class="sp"></span>
+    <button id="impBtn">Import JSON</button>
     <button id="dlBtn">Download JSON</button>
     <button id="copyBtn" class="primary">Copy for Claude</button>
   </div>
   <div id="main">
     <div id="viewport">
       <div id="world"></div>
-      <div id="hint">drag to move (magenta lines = snap; alt disables) &middot; shift-click selects several &middot; ctrl+G groups &middot; ctrl+handle resizes from centre &middot; knob rotates (snaps at 90&#176;) &middot; ctrl+wheel zoom &middot; double-click text edits &middot; v8</div>
+      <div id="hint">drag to move (magenta lines = snap; alt disables) &middot; shift-click selects several &middot; ctrl+G groups &middot; ctrl+handle resizes from centre &middot; knob rotates (snaps at 90&#176;) &middot; ctrl+wheel zoom &middot; double-click text edits &middot; ctrl+C/V copy &amp; paste, ctrl+D duplicates &middot; v9</div>
     </div>
     <div id="side">
       <h3>Layers</h3><div id="layers"></div>
@@ -100,6 +101,7 @@ kbd{opacity:.55;font-size:10px;margin-left:4px}
   <textarea id="modalTxt" readonly></textarea>
   <div style="display:flex;gap:8px;justify-content:flex-end">
     <button id="modalSelect">Select all</button>
+    <button id="modalApply" class="primary" style="display:none">Import</button>
     <button id="modalClose" class="primary">Done</button>
   </div>
 </div></div>
@@ -314,6 +316,30 @@ function render() {
       for (const s of [-1, 1]) g.appendChild(mk(a.x2, a.y2,
         a.x2 - hl * Math.cos(ang + s * 0.42), a.y2 - hl * Math.sin(ang + s * 0.42), 3, null, a.color));
       g.dataset.kind = 'add'; g.dataset.id = a.id; svg.appendChild(g);
+    } else if (a.type === 'clone') {
+      // A copy of a scene element. Renders exactly like the original so a duplicated card
+      // still looks like a card; the pixels come from SRC by the source element's id, so
+      // clones never carry their own copy of a data URI.
+      const d = document.createElement('div');
+      d.dataset.kind = 'add'; d.dataset.id = a.id;
+      const base = `left:${a.x}px;top:${a.y}px;width:${a.w}px;height:${a.h}px;` +
+        `transform:rotate(${a.rot || 0}deg);cursor:move`;
+      if (a.of === 'text') {
+        d.className = 'obj eltxt'; d.textContent = a.text;
+        d.style.cssText = base + `;font-size:${a.fontPx}px;color:${a.color};` +
+          `text-align:${a.align || 'left'};white-space:pre-wrap;line-height:1.3;overflow:hidden`;
+      } else if (a.of === 'box') {
+        d.className = 'obj elbox'; d.textContent = a.label;
+        d.style.cssText = base + `;background:${a.color || '#2a2c31'};` +
+          `border-radius:${a.radius ?? 12}px;font-size:${Math.min(14, a.h * 0.3)}px`;
+      } else {
+        d.className = 'obj imgLayer';
+        d.style.cssText = base + `;background-image:url(${SRC.get(a.srcOf)});` +
+          `background-size:${a.img.w}px ${a.img.h}px;` +
+          `background-position:${-a.img.offX}px ${-a.img.offY}px`;
+      }
+      d.style.pointerEvents = 'auto';
+      world.appendChild(d);
     } else {
       const d = document.createElement('div');
       d.className = 'obj ' + (a.type === 'text' ? 'txt' : 'shape');
@@ -856,8 +882,21 @@ world.addEventListener('dblclick', e => {
   const t = e.target.closest?.('.txt');
   if (t) { const a = S.added.find(x => x.id === t.dataset.id); if (a) startTextEdit(a); return; }
   const et = e.target.closest?.('.eltxt'); if (!et) return;
-  const el = S.els.find(x => x.id === et.dataset.id); if (el) startElTextEdit(el);
+  const el = S.els.find(x => x.id === et.dataset.id);
+  if (el) { startElTextEdit(el); return; }
+  // A cloned text layer carries kind 'add', so it lives in S.added rather than S.els.
+  const cl = S.added.find(x => x.id === et.dataset.id && x.type === 'clone' && x.of === 'text');
+  if (cl) startCloneTextEdit(cl);
 });
+function startCloneTextEdit(a) {
+  const d = world.querySelector(`.eltxt[data-id="${a.id}"]`); if (!d || d.isContentEditable) return;
+  d.contentEditable = 'true'; d.focus();
+  getSelection().selectAllChildren(d);
+  const done = () => { a.text = d.innerText.replace(/\n$/, ''); d.contentEditable = 'false';
+    commit(); render(); };
+  d.onblur = done;
+  d.onkeydown = ev => { if (ev.key === 'Escape') { ev.preventDefault(); d.blur(); } ev.stopPropagation(); };
+}
 function startElTextEdit(el) {
   const d = world.querySelector(`.eltxt[data-id="${el.id}"]`); if (!d || d.isContentEditable) return;
   d.contentEditable = 'true'; d.focus();
@@ -903,6 +942,69 @@ zIn.onclick = () => { view.k = Math.min(6, view.k * 1.25); render(); };
 zOut.onclick = () => { view.k = Math.max(0.1, view.k / 1.25); render(); };
 zFit.onclick = fit;
 
+/* ---------- clipboard ---------- */
+// Copies produce ADDED objects, never new scene elements: the export diffs each original
+// element against its pristine self by id, so two objects claiming one id is incoherent.
+// A copied scene element therefore becomes a 'clone' - it looks identical and exports as a
+// copy that names what it was copied from.
+let CLIP = [];
+
+function cloneOf(o, kind) {
+  if (kind === 'pin') return {_pin: true, x: o.x, y: o.y, text: o.text};
+  if (kind === 'add') { const c = JSON.parse(JSON.stringify(o)); delete c.id; return c; }
+  // scene element -> clone
+  const base = {type: 'clone', srcOf: o.id, label: o.label,
+    x: o.x, y: o.y, w: o.w, h: o.h, rot: o.rot || 0};
+  if (o.type === 'text') return {...base, of: 'text', text: o.text,
+    fontPx: o.fontPx, color: o.color, align: o.align || 'left'};
+  if (o.type === 'box') return {...base, of: 'box', color: o.color, radius: o.radius};
+  return {...base, of: 'img', img: JSON.parse(JSON.stringify(o.img))};
+}
+
+function selectedUnits() {
+  return S.multi.length ? S.multi : (S.sel ? [S.sel] : []);
+}
+
+function copySelection() {
+  const units = selectedUnits();
+  const members = units.flatMap(u => u.kind === 'group'
+    ? (S.groups.find(g => g.id === u.id)?.members ?? []) : [u]);
+  const out = [];
+  for (const m of members) {
+    const o = get(m);
+    if (!o || o.hidden) continue;
+    out.push(cloneOf(o, m.kind));
+  }
+  if (!out.length) return false;
+  CLIP = out;
+  showToast('Copied ' + out.length + (out.length === 1 ? ' object' : ' objects'));
+  return true;
+}
+
+// Pasted copies land offset so they are visibly separate from what they came from, and end
+// up selected, so the usual next move - drag them somewhere - works without hunting.
+function pasteClipboard(dx = 24, dy = 24) {
+  if (!CLIP.length) return;
+  const made = [];
+  for (const c of CLIP) {
+    if (c._pin) {
+      const p = {id: S.nextPin, n: S.nextPin++, x: c.x + dx, y: c.y + dy, text: c.text};
+      S.comments.push(p); made.push({kind: 'pin', id: p.id}); continue;
+    }
+    const a = JSON.parse(JSON.stringify(c));
+    a.id = 'c' + S.nextShape++;
+    if (a.x1 !== undefined) { a.x1 += dx; a.x2 += dx; a.y1 += dy; a.y2 += dy; }
+    else { a.x += dx; a.y += dy; }
+    S.added.push(a); made.push({kind: 'add', id: a.id});
+  }
+  S.sel = made.length === 1 ? made[0] : null;
+  S.multi = made.length > 1 ? made : [];
+  // Pasting several keeps them together, so they move as the unit they were copied as.
+  // groupSelection commits and renders on its own, so only the single case does it here.
+  if (made.length > 1) groupSelection(); else { commit(); render(); }
+  showToast('Pasted ' + made.length + (made.length === 1 ? ' object' : ' objects'));
+}
+
 addEventListener('keydown', e => {
   if (e.target.matches('input,textarea,[contenteditable=true]')) return;
   if (e.code === 'Space') { spaceDown = true; vp.style.cursor = 'grab'; e.preventDefault(); return; }
@@ -911,7 +1013,11 @@ addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); return; }
   if ((e.ctrlKey || e.metaKey) && k === 'g') { e.preventDefault();
     e.shiftKey ? ungroupSelection() : groupSelection(); return; }
-  if (e.ctrlKey || e.metaKey || e.altKey) return;   // don't let Ctrl+C/R/A hit tool hotkeys
+  if ((e.ctrlKey || e.metaKey) && k === 'c') { e.preventDefault(); copySelection(); return; }
+  if ((e.ctrlKey || e.metaKey) && k === 'v') { e.preventDefault(); pasteClipboard(); return; }
+  if ((e.ctrlKey || e.metaKey) && k === 'd') { e.preventDefault();
+    if (copySelection()) pasteClipboard(); return; }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;   // don't let Ctrl+R/A hit tool hotkeys
   if (k === 'v') { S.tool = 'select'; toolBtns(); }
   if (k === 'r') { S.tool = 'rect'; toolBtns(); }
   if (k === 'o') { S.tool = 'ellipse'; toolBtns(); }
@@ -998,7 +1104,13 @@ function buildExport() {
     annotations: S.added.map(a => a.type === 'arrow'
       ? {type: 'arrow', from_px: {x: toDev(a.x1), y: toDev(a.y1)}, to_px: {x: toDev(a.x2), y: toDev(a.y2)},
          from_near: nearest(a.x1, a.y1)?.id, to_near: nearest(a.x2, a.y2)?.id, color: a.color}
+      : a.type === 'clone'
+      ? {type: 'copy', of_element: a.srcOf, label: a.label, px: rect(a), dp: rectDp(a),
+         text: a.of === 'text' ? a.text : null,
+         font_px: a.of === 'text' ? toDev(a.fontPx) : undefined,
+         align: a.of === 'text' ? (a.align || 'left') : undefined}
       : {type: a.type, px: rect(a), dp: rectDp(a), text: a.text ?? null, color: a.color,
+         font_px: a.type === 'text' ? toDev(a.fontSize) : undefined,
          align: a.type === 'text' ? (a.align || 'left') : undefined,
          fill: (a.fill && a.fill !== 'none') ? a.fill : null}),
     groups: S.groups.map(g => ({id: g.id, members: g.members.map(m => m.id)})),
@@ -1025,6 +1137,8 @@ copyBtn.onclick = () => {
   // sandboxed artifact iframe on Chromium, and any await before a fallback
   // would burn the transient activation execCommand needs.
   const txt = JSON.stringify(buildExport(), null, 1);
+  modalTitle.textContent = 'Copy this JSON and paste it to Claude';
+  modalTxt.readOnly = true; modalApply.style.display = 'none'; modalSelect.style.display = '';
   if (execCopy(txt)) { showToast('Copied \u2014 paste it to Claude'); return; }
   navigator.clipboard?.writeText(txt).then(
     () => showToast('Copied \u2014 paste it to Claude'),
@@ -1039,6 +1153,76 @@ dlBtn.onclick = () => {
     a.download = SCENE.meta.screen + '-edits.json'; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   } catch (_) { modalTxt.value = txt; modal.classList.add('open'); }
+};
+// Restore a previous session from its own export. Everything in the export is in
+// device px; the editor works in device px / scale.
+function applyImport(data) {
+  if (!data || data.format !== 'interface-modify/v1')
+    throw new Error('not an interface-modify export');
+  if (data.screen && SCENE.meta.screen && data.screen !== SCENE.meta.screen)
+    throw new Error(`export is for "${data.screen}", this editor is "${SCENE.meta.screen}"`);
+  const k = ESC;
+  for (const e of S.els) {                       // start from pristine
+    Object.assign(e, {x: e.orig.x, y: e.orig.y, w: e.orig.w, h: e.orig.h,
+      rot: e.orig.rot, hidden: false});
+    if (e.type === 'text') Object.assign(e,
+      {text: e.orig.text, fontPx: e.orig.fontPx, color: e.orig.color, align: e.orig.align});
+    if (e.img) e.img = {w: e.w, h: e.h, offX: 0, offY: 0};
+  }
+  for (const m of data.elements_moved || []) {
+    const e = S.els.find(x => x.id === m.id); if (!e || !m.after_px) continue;
+    const a = m.after_px;
+    e.x = a.x / k; e.y = a.y / k; e.w = a.w / k; e.h = a.h / k; e.rot = a.rot || 0;
+    if (e.img) {
+      e.img = {w: e.w, h: e.h, offX: 0, offY: 0};
+      const f = m.crop && m.crop.src_frac;
+      if (f && f.w > 0 && f.h > 0) {
+        e.img.w = e.w / f.w; e.img.h = e.h / f.h;
+        e.img.offX = f.x * e.img.w; e.img.offY = f.y * e.img.h;
+      }
+    }
+    if (m.text_changed) e.text = m.text_changed.after;
+    if (m.text_style) {
+      if (m.text_style.font_px_after) e.fontPx = m.text_style.font_px_after / k;
+      if (m.text_style.color_after) e.color = m.text_style.color_after;
+      if (m.text_style.align_after) e.align = m.text_style.align_after;
+    }
+  }
+  for (const id of data.elements_hidden || []) {
+    const e = S.els.find(x => x.id === id); if (e) e.hidden = true; }
+  let n = 1;
+  S.added = (data.annotations || []).map(a => a.type === 'arrow'
+    ? {id: 's' + (n++), type: 'arrow', x1: a.from_px.x / k, y1: a.from_px.y / k,
+       x2: a.to_px.x / k, y2: a.to_px.y / k, color: a.color || '#ff5555'}
+    : {id: 's' + (n++), type: a.type, x: a.px.x / k, y: a.px.y / k,
+       w: a.px.w / k, h: a.px.h / k, rot: a.px.rot || 0, color: a.color || '#ff5555',
+       fill: a.fill || 'none', text: a.text ?? 'Label', align: a.align || 'left',
+       fontSize: (a.font_px ? a.font_px / k : (a.px.h / k) * 0.7)});
+  S.nextShape = n;
+  S.comments = (data.comments || []).map(c => ({id: c.n, n: c.n,
+    x: c.at_px.x / k, y: c.at_px.y / k, text: c.text || ''}));
+  S.nextPin = S.comments.reduce((m, c) => Math.max(m, c.n), 0) + 1;
+  const known = id => S.els.some(e => e.id === id) ? 'el' : 'add';
+  S.groups = (data.groups || []).map((g, i) => ({id: g.id || 'g' + (i + 1),
+    members: (g.members || []).map(id => ({kind: known(id), id}))}))
+    .filter(g => g.members.length > 1);
+  S.nextGroup = S.groups.length + 1;
+  if (data.notes) { S.notes = data.notes; document.getElementById('notes').value = data.notes; }
+  S.sel = null; S.multi = []; S.crop = false;
+  commit(); render();
+}
+impBtn.onclick = () => {
+  modalTitle.textContent = 'Paste an interface-modify JSON export to restore it';
+  modalTxt.readOnly = false; modalTxt.value = '';
+  modalApply.style.display = ''; modalSelect.style.display = 'none';
+  modal.classList.add('open'); modalTxt.focus();
+};
+modalApply.onclick = () => {
+  let data;
+  try { data = JSON.parse(modalTxt.value); }
+  catch (_) { showToast('That is not valid JSON'); return; }
+  try { applyImport(data); } catch (err) { showToast('Import failed: ' + err.message); return; }
+  modal.classList.remove('open'); showToast('Imported');
 };
 modalClose.onclick = () => modal.classList.remove('open');
 modalSelect.onclick = () => { modalTxt.focus(); modalTxt.select(); };
